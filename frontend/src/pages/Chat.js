@@ -55,7 +55,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)]">
+    <div className="flex flex-col h-[calc(100vh-100px)] md:h-[calc(100vh-48px)]">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 pt-1">
         <div className="flex items-center gap-3">
@@ -85,7 +85,7 @@ export default function Chat() {
             </div>
             <p className="font-bold text-secondary mb-1">Ask me anything</p>
             <p className="text-sm text-muted mb-6 max-w-[240px]">I know your balances, spending patterns, and budget status</p>
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-2 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
               {SUGGESTIONS.map((s) => (
                 <motion.button key={s.text} whileTap={{ scale: 0.97 }}
                   onClick={() => send(s.text)}

@@ -67,8 +67,10 @@ export default function Charts() {
         </div>
       ) : (
         <>
-          {/* Expense Pie */}
-          {expensesByCategory.length > 0 && (
+          {/* Pie Charts Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Expense Pie */}
+            {expensesByCategory.length > 0 && (
             <motion.div variants={fadeUp} className="card">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center">
@@ -124,7 +126,10 @@ export default function Charts() {
               </div>
             </motion.div>
           )}
+          </div>
 
+          {/* Monthly Bar + Balance Trend Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Monthly Bar */}
           {monthlyData.length > 0 && (
             <motion.div variants={fadeUp} className="card">
@@ -176,6 +181,7 @@ export default function Charts() {
               </ResponsiveContainer>
             </motion.div>
           )}
+          </div>
         </>
       )}
     </motion.div>

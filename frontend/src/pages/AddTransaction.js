@@ -125,7 +125,7 @@ export default function AddTransaction() {
         {/* Account */}
         <div>
           <p className="section-title">Account</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 md:grid-cols-4 gap-2 md:gap-3">
             {PROVIDERS.map((p) => (
               <button key={p.key} type="button" onClick={() => setForm({ ...form, provider: p.key })}
                 className={`py-3 rounded-2xl text-xs font-bold transition-all duration-200 border ${
