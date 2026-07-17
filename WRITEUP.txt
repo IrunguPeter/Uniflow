@@ -1,0 +1,90 @@
+UniFlow Finance: An AI-Driven Financial Survival Engine for Kenyan Students
+
+Bridging the gap between M-Pesa ubiquity and sustainable student budgeting using Gemma 4.
+
+================================================================================
+
+1. Problem Statement
+
+Kenyan university students live in a unique financial ecosystem dominated by M-Pesa mobile money, irregular HELB (Higher Education Loans Board) disbursements, and campus micro-economies. Existing budgeting apps treat all users identically -- they assume stable monthly salaries, ignore M-Pesa's centrality, and offer generic "spend less" advice that rings hollow for a student deciding between lunch and fare home. UniFlow Finance was built in a single day to prove that specialized domain logic paired with a capable LLM can produce something meaningfully better.
+
+2. System Architecture
+
+UniFlow follows a decoupled client-server architecture. The backend is a Node.js/Express API backed by SQLite via Sequelize ORM. The frontend is a React 18 single-page application styled with Tailwind CSS, animated with Framer Motion, and charted with Recharts.
+
+Backend
+
+The backend is organized into four layers:
+
+Models define the data schema. The Transaction model stores every financial event -- income, expense, or transfer -- tagged with a provider field (MPESA, NCBA, IM, CASH) that enables per-account balance tracking. The RecurringExpense model captures fixed costs (rent, savings, transport) with a frequency field (weekly, monthly, semester) that the budget engine converts to a weekly equivalent. The ChatMessage model persists AI conversation history per user.
+
+Services contain the business logic. BudgetService computes weekly spend against an effective limit (user-defined weekly limit minus recurring deductions), calculates separate balances per account provider, and aggregates transaction data into category and monthly breakdowns for charts. HelbPlannerService treats a HELB loan as a fixed asset, deducts user-specified fixed costs, and divides the remainder across the semester weeks. AiFinancialAdvisor constructs context-rich prompts for Gemma 4 and handles both one-shot spending advice and multi-turn conversations.
+
+Routes expose a RESTful API with full input validation. Every endpoint accepts a userId parameter for multi-user readiness. The /api/finance/chat endpoint is the most complex -- it fetches the user's financial snapshot (balances, budget status, recent transactions, top expense categories), retrieves the last 20 chat messages for context continuity, and passes everything to Gemma 4 in a single call.
+
+Utilities include mpesaParser.js, a regex engine that parses real Safaricom SMS notifications into structured transaction data.
+
+Frontend
+
+The frontend is a mobile-first SPA with five primary views accessible via a bottom navigation bar (Home, Charts, Add, AI Chat, More), plus secondary views for HELB planning, recurring expenses, M-Pesa SMS parsing, and transaction history.
+
+The Dashboard renders separate M-Pesa and Bank balance cards with income/expense mini-breakdowns, a weekly budget progress bar that visually reflects recurring deductions, and an AI insight bubble powered by Gemma 4. The Add Transaction page offers an expense/income toggle, an account picker (M-Pesa, NCBA, I&M, Cash), and category selection. The Charts page visualizes expense and income breakdowns as donut charts, monthly income vs. expenses as a bar chart, and balance trend as a line chart. The Chat page provides a conversational interface with typing indicators, suggestion chips, and persisted history.
+
+3. Gemma 4 Integration
+
+Gemma 4 is the reasoning core of UniFlow, used in two distinct modes:
+
+Dashboard Advisory (One-Shot)
+
+When the Dashboard loads, the backend calls BudgetService.checkWeeklySpend() and BudgetService.getBalance(), fetches the five most recent expense transactions, and feeds all of this to Gemma 4 via AiFinancialAdvisor.getSpendingAdvice(). The prompt instructs the model to act as a supportive Kenyan student financial advisor, use local slang ("ku-survive", "shillings"), and keep advice under three sentences. The model receives the raw numbers -- Ksh spent, Ksh remaining, percentage used, status (OK/WARNING/EXCEEDED), and recent transaction descriptions -- and returns a single actionable tip. This replaces the brittle "you're over budget" alerts found in traditional apps with context-aware coaching.
+
+Chat Interface (Multi-Turn)
+
+The /api/finance/chat endpoint constructs a richer context object for each user message: total and per-account balances, weekly budget metrics, the last 10 transactions, and the top 5 expense categories by amount. This is prepended as a system instruction to the conversation history (capped at 20 messages for token efficiency). Gemma 4 receives the full context plus the new user message and returns a conversational response. Both the user message and assistant reply are persisted in the ChatMessage table, enabling continuity across sessions.
+
+Provider Flexibility
+
+The system is designed for provider-agnostic LLM access. By default it calls a local Ollama endpoint. The GEMMA_CLOUD_SETUP.md document provides complete instructions for switching to Google AI Studio, OpenRouter, Groq, or any OpenAI-compatible API -- requiring only environment variable changes and a provider-specific adapter function. This means the same codebase works for local development and cloud production deployment.
+
+4. Challenges Overcome in the 1-Day Sprint
+
+Real M-Pesa SMS Format
+
+The initial regex patterns assumed a textbook SMS structure. Real Safaricom notifications begin with the transaction ID, use lowercase verbs ("sent to" not "You have sent to"), omit the recipient phone number, and include balance and transaction cost fields. I rewrote the parser with anchored patterns for send, receive, paybill, and withdraw formats, plus a generic fallback that detects income vs. expense by verb analysis. The parser was validated against real SMS data during the sprint.
+
+SQLite UNIQUE Column Limitation
+
+Adding a userId field with a UNIQUE constraint to the existing Users table via Sequelize's alter: true sync failed because SQLite cannot ALTER TABLE to add a UNIQUE column. The fix was to delete the database file and let the schema recreate cleanly -- a pragmatic solution for a prototype that would need a migration strategy in production.
+
+Frontend-Backend User ID Mismatch
+
+The frontend generated a string ID (demo-user) stored in localStorage, while the backend created users with auto-increment integer primary keys. The weeklyLimit from the User model was never read by either side. I added a userId string field to the User model with a findOrCreateByUserId() helper, ensuring the frontend and backend share a consistent identity layer and the weekly limit is dynamically fetched from the database.
+
+Dead Code Elimination
+
+The original codebase had three fully implemented but unwired features: the M-Pesa SMS parser, the HELB allocation service, and the User model's weekly limit. Rather than building new features on top of incomplete plumbing, I wired all three into functional endpoints and integrated them into the frontend before adding new capabilities.
+
+5. Technical Justifications
+
+SQLite over MongoDB: For a single-user prototype, SQLite's zero-config setup and file-based storage eliminate the operational complexity of managing a database server. Sequelize provides the same model abstraction as Mongoose, making future migration straightforward.
+
+React with Framer Motion over React Native: A web app runs everywhere without app store approval. Framer Motion's AnimatePresence and layoutId animations produce native-feeling transitions in the browser, achieving the mobile-first feel without the native overhead.
+
+Recharts for Analytics: Chosen for its React-native API and small bundle size. The component-based chart architecture (PieChart, BarChart, LineChart) maps directly to the three analytics views without requiring a separate charting DSL.
+
+Context-Rich Prompting for Gemma 4: Rather than sending generic financial advice prompts, UniFlow constructs a financial snapshot per request. This gives Gemma 4 the specific numbers it needs to produce actionable advice rather than platitudes. The system prompt establishes persona, tone, and constraints (length, slang, encouragement over lecturing).
+
+Recurring Expense Deduction Engine: By converting all recurring expenses to a weekly equivalent and subtracting from the budget limit before calculating discretionary spend, the budget bar reflects the student's actual available spending power rather than an aspirational total.
+
+6. Scalability Path
+
+UniFlow's architecture supports incremental scaling. Open Banking APIs (NCBA Loop, I&M) can replace manual transaction entry. M-Pesa's Daraja API can automate SMS-equivalent data capture. The chat history enables fine-tuning or RAG-based retrieval for more personalized advice over time. Predictive models can be trained on historical transaction data to forecast when a student will run out of money before it happens. The separation of M-Pesa and Bank balances is the first step toward multi-account aggregation and net worth tracking.
+
+This is not a demo -- it is a functional foundation for student financial wellness in East Africa, built on real engineering decisions made under real constraints.
+
+================================================================================
+
+Attachments
+
+Project Link: https://github.com/IrunguPeter/Uniflow
+Live Demo: https://drive.google.com/file/d/1vtOqEXrmuvNQy2jkccCoP-hSX5RghOvO/view?usp=sharing

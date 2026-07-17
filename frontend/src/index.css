@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #F0F2F5;
+  color: #1A1A1A;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, #00B97A 0%, #00D98F 50%, #009966 100%);
+  }
+
+  .gradient-warm {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  }
+
+  .gradient-cool {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .gradient-sunset {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
+
+  .gradient-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8f9fb 100%);
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white py-3 rounded-2xl font-bold text-sm
+           transition-all duration-200 ease-out
+           active:scale-[0.97] hover:bg-primary-dark
+           disabled:opacity-40 disabled:active:scale-100;
+    box-shadow: 0 4px 14px rgba(0, 185, 122, 0.3);
+  }
+
+  .btn-primary:active {
+    box-shadow: 0 2px 8px rgba(0, 185, 122, 0.2);
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-secondary py-3 rounded-2xl font-semibold text-sm
+           transition-all duration-200 ease-out
+           active:scale-[0.97] hover:bg-gray-200;
+  }
+
+  .input-field {
+    @apply w-full bg-surface-dim border border-gray-200 rounded-2xl px-4 py-3 text-sm
+           font-medium text-secondary placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+           transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-3xl shadow-card p-5;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:shadow-card-hover;
+  }
+
+  .skeleton {
+    @apply animate-pulse bg-gray-200 rounded-2xl;
+    background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .section-title {
+    @apply text-xs font-bold uppercase tracking-widest text-muted mb-3;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
