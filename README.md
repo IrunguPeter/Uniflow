@@ -26,7 +26,7 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 |-------|-----------|
 | Frontend | React 18, Tailwind CSS, Framer Motion, Recharts |
 | Backend | Node.js, Express.js, Sequelize ORM, SQLite |
-| AI | Gemma 4 (local Ollama or cloud — see `GEMMA_CLOUD_SETUP.md`) |
+| AI | Groq (Llama 3.3 70B or other models) |
 
 ## Running the App
 
@@ -46,8 +46,9 @@ npm start            # starts on port 3000
 
 ### Environment Variables (backend `.env`)
 ```env
-GEMMA_API_URL=http://localhost:11434/api/chat   # Ollama default
-GEMMA_MODEL=gemma4:31b-cloud
+GEMMA_PROVIDER=groq
+GEMMA_API_KEY=your-groq-key
+GEMMA_MODEL=llama-3.3-70b-versatile
 PORT=5000
 ```
 

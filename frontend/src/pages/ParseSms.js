@@ -97,7 +97,29 @@ export default function ParseSms() {
           </motion.div>
         )}
 
-        {result && (
+        {result?.pending && (
+          <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}
+            className="relative overflow-hidden rounded-3xl border border-amber-200"
+            style={{ background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' }}>
+            <div className="relative z-10 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
+                  <span className="text-sm">⏳</span>
+                </div>
+                <p className="font-bold text-amber-700 text-sm">Needs Categorization</p>
+              </div>
+              <p className="text-xs text-amber-800/70 mb-3">
+                Transaction of <span className="font-bold">KES {result.transaction?.amount?.toLocaleString()}</span> has been saved as pending.
+              </p>
+              <button onClick={() => navigate('/pending')}
+                className="w-full bg-amber-500 text-white py-2.5 rounded-2xl text-sm font-bold transition active:scale-98">
+                Categorize Now →
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {result && !result.pending && (
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}
             className="relative overflow-hidden rounded-3xl border border-emerald-200"
             style={{ background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)' }}>
@@ -115,25 +137,25 @@ export default function ParseSms() {
               <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted font-medium">Type</span>
-                  <span className="badge bg-primary/10 text-primary capitalize">{result.parsed.type}</span>
+                  <span className="badge bg-primary/10 text-primary capitalize">{result.parsed?.type}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted font-medium">Amount</span>
-                  <span className="text-lg font-extrabold text-secondary">KES {result.parsed.amount?.toLocaleString()}</span>
+                  <span className="text-lg font-extrabold text-secondary">KES {result.parsed?.amount?.toLocaleString()}</span>
                 </div>
-                {result.parsed.recipient && (
+                {result.parsed?.recipient && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted font-medium">To</span>
                     <span className="text-sm font-bold text-secondary">{result.parsed.recipient}</span>
                   </div>
                 )}
-                {result.parsed.sender && (
+                {result.parsed?.sender && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted font-medium">From</span>
                     <span className="text-sm font-bold text-secondary">{result.parsed.sender}</span>
                   </div>
                 )}
-                {result.parsed.ref && (
+                {result.parsed?.ref && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted font-medium">Reference</span>
                     <span className="text-xs font-mono font-bold text-muted bg-gray-100 px-2 py-0.5 rounded-lg">{result.parsed.ref}</span>

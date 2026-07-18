@@ -5,6 +5,7 @@ const AiFinancialAdvisor = require('../services/aiService');
 const HelbPlannerService = require('../services/helbService');
 const { parseMpesaSMS } = require('../utils/mpesaParser');
 const Transaction = require('../models/Transaction');
+const PendingTransaction = require('../models/PendingTransaction');
 const User = require('../models/User');
 const RecurringExpense = require('../models/RecurringExpense');
 const ChatMessage = require('../models/ChatMessage');
@@ -138,7 +139,7 @@ router.delete('/transactions/:id', async (req, res) => {
     }
 });
 
-// ── M-Pesa SMS Parsing ──────────────────────────────────────────────
+// ── M-Pesa SMS Parsing (AI-Powered) ──────────────────────────────────
 
 router.post('/parse-sms', async (req, res) => {
     const { smsText, userId } = req.body;
@@ -147,37 +148,296 @@ router.post('/parse-sms', async (req, res) => {
         return res.status(400).json({ error: 'SMS text is required' });
     }
 
-    const parsed = parseMpesaSMS(smsText.trim());
-
-    if (!parsed) {
-        return res.status(400).json({ error: 'Could not parse M-Pesa SMS. Please check the format.' });
-    }
-
     try {
-        const description = parsed.type === 'income'
-            ? `Received from ${parsed.sender}`
-            : parsed.paybill
-                ? `Paid ${parsed.paybill}`
-                : `Sent to ${parsed.recipient}`;
+        // Use AI to parse the SMS
+        const aiParsed = await AiFinancialAdvisor.parseMpesaSMS(smsText.trim());
 
-        const transaction = await Transaction.create({
+        if (!aiParsed.isMpesa) {
+            return res.status(400).json({ error: 'This does not appear to be an M-Pesa SMS' });
+        }
+
+        // Create pending transaction for user to categorize
+        const pendingTx = await PendingTransaction.create({
             userId: userId || 'demo-user',
+            rawSms: smsText.trim(),
+            amount: aiParsed.amount,
+            type: aiParsed.type,
+            counterparty: aiParsed.counterparty,
+            transactionReference: aiParsed.reference,
+            suggestedDescription: aiParsed.description,
+            status: 'pending',
+            timestamp: aiParsed.timestamp ? new Date(aiParsed.timestamp) : new Date()
+        });
+
+        res.status(201).json({ 
+            pending: true, 
+            transaction: pendingTx,
+            message: 'Transaction needs categorization' 
+        });
+    } catch (error) {
+        console.error('AI SMS Parse error:', error);
+        // Fallback to regex parser
+        const parsed = parseMpesaSMS(smsText.trim());
+        if (!parsed) {
+            return res.status(400).json({ error: 'Could not parse SMS' });
+        }
+        
+        const pendingTx = await PendingTransaction.create({
+            userId: userId || 'demo-user',
+            rawSms: smsText.trim(),
             amount: parsed.amount,
-            description,
-            category: parsed.type === 'income' ? 'Allowance' : 'Other',
             type: parsed.type,
-            provider: 'MPESA',
+            counterparty: parsed.recipient || parsed.sender || parsed.paybill,
             transactionReference: parsed.ref,
+            suggestedDescription: parsed.type === 'income' ? 'Received' : 'Sent',
+            status: 'pending',
             timestamp: new Date()
         });
 
-        res.status(201).json({ parsed, transaction });
+        res.status(201).json({ pending: true, transaction: pendingTx });
+    }
+});
+
+// ── Pending Transactions (for categorization) ────────────────────────
+
+router.get('/pending-transactions', async (req, res) => {
+    const { userId } = req.query;
+
+    try {
+        const pending = await PendingTransaction.findAll({
+            where: { userId: userId || 'demo-user', status: 'pending' },
+            order: [['createdAt', 'DESC']],
+            limit: 20
+        });
+        res.json(pending);
+    } catch (error) {
+        console.error('Fetch pending error:', error);
+        res.status(500).json({ error: 'Failed to fetch pending transactions' });
+    }
+});
+
+router.post('/pending-transactions/:id/categorize', async (req, res) => {
+    const { id } = req.params;
+    const { category, description } = req.body;
+
+    if (!category) {
+        return res.status(400).json({ error: 'Category is required' });
+    }
+
+    try {
+        const pending = await PendingTransaction.findByPk(id);
+        if (!pending) {
+            return res.status(404).json({ error: 'Pending transaction not found' });
+        }
+
+        // Create the actual transaction
+        const transaction = await Transaction.create({
+            userId: pending.userId,
+            amount: pending.amount,
+            description: description || pending.suggestedDescription || 'M-Pesa Transaction',
+            category,
+            type: pending.type,
+            provider: 'MPESA',
+            transactionReference: pending.transactionReference,
+            timestamp: pending.timestamp
+        });
+
+        // Update pending status
+        await pending.update({ status: 'categorized' });
+
+        res.json({ transaction, pending });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({ error: 'This transaction has already been recorded' });
+            return res.status(409).json({ error: 'Transaction already exists' });
         }
-        console.error('Parse SMS error:', error);
-        res.status(500).json({ error: 'Failed to save parsed transaction' });
+        console.error('Categorize error:', error);
+        res.status(500).json({ error: 'Failed to categorize transaction' });
+    }
+});
+
+router.post('/pending-transactions/:id/ignore', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const pending = await PendingTransaction.findByPk(id);
+        if (!pending) {
+            return res.status(404).json({ error: 'Pending transaction not found' });
+        }
+
+        await pending.update({ status: 'ignored' });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Ignore error:', error);
+        res.status(500).json({ error: 'Failed to ignore transaction' });
+    }
+});
+
+// ── Auto-Sync SMS (AI-Powered) ──────────────────────────────────────
+
+router.post('/sync-sms', async (req, res) => {
+    const { messages, userId } = req.body;
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    const uid = userId || 'demo-user';
+    const results = { synced: 0, pending: 0, skipped: 0, failed: 0, transactions: [] };
+
+    for (const msg of messages) {
+        try {
+            const smsText = msg.body || msg.text || '';
+            
+            // Use AI to parse
+            const aiParsed = await AiFinancialAdvisor.parseMpesaSMS(smsText);
+            
+            if (!aiParsed.isMpesa) {
+                results.skipped++;
+                continue;
+            }
+
+            // Create pending transaction for user to categorize
+            const pendingTx = await PendingTransaction.create({
+                userId: uid,
+                rawSms: smsText,
+                amount: aiParsed.amount,
+                type: aiParsed.type,
+                counterparty: aiParsed.counterparty,
+                transactionReference: aiParsed.reference,
+                suggestedDescription: aiParsed.description,
+                status: 'pending',
+                timestamp: aiParsed.timestamp ? new Date(aiParsed.timestamp) : (msg.timestamp ? new Date(msg.timestamp) : new Date())
+            });
+
+            results.pending++;
+            results.transactions.push(pendingTx);
+        } catch (error) {
+            if (error.name === 'SequelizeUniqueConstraintError') {
+                results.skipped++;
+            } else {
+                console.error('Sync SMS error:', error);
+                results.failed++;
+            }
+        }
+    }
+
+    if (results.pending > 0) {
+        lastSyncTime = new Date();
+        totalSynced += results.pending;
+    }
+
+    res.json(results);
+});
+
+// ── Device Registration (for Android app) ───────────────────────────
+
+const registeredDevices = new Map();
+
+router.post('/device/register', async (req, res) => {
+    const { deviceId, userId, fcmToken } = req.body;
+
+    if (!deviceId) {
+        return res.status(400).json({ error: 'Device ID is required' });
+    }
+
+    registeredDevices.set(deviceId, {
+        userId: userId || 'demo-user',
+        fcmToken,
+        registeredAt: new Date(),
+        lastSync: null
+    });
+
+    res.json({ success: true, deviceId });
+});
+
+router.post('/device/sync-status', async (req, res) => {
+    const { deviceId } = req.body;
+
+    if (!deviceId || !registeredDevices.has(deviceId)) {
+        return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const device = registeredDevices.get(deviceId);
+    device.lastSync = new Date();
+
+    res.json({ success: true, lastSync: device.lastSync });
+});
+
+// ── Sync Stats (for Dashboard) ─────────────────────────────────────
+
+let lastSyncTime = null;
+let totalSynced = 0;
+
+router.post('/sync-sms', async (req, res) => {
+    const { messages, userId } = req.body;
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    const uid = userId || 'demo-user';
+    const results = { synced: 0, skipped: 0, failed: 0, transactions: [] };
+
+    for (const msg of messages) {
+        try {
+            const parsed = parseMpesaSMS(msg.body || msg.text || '');
+            if (!parsed) {
+                results.skipped++;
+                continue;
+            }
+
+            const description = parsed.type === 'income'
+                ? `Received from ${parsed.sender}`
+                : parsed.paybill
+                    ? `Paid ${parsed.paybill}`
+                    : `Sent to ${parsed.recipient}`;
+
+            const transaction = await Transaction.create({
+                userId: uid,
+                amount: parsed.amount,
+                description,
+                category: parsed.type === 'income' ? 'Allowance' : 'Other',
+                type: parsed.type,
+                provider: 'MPESA',
+                transactionReference: parsed.ref,
+                timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
+            });
+
+            results.synced++;
+            results.transactions.push(transaction);
+        } catch (error) {
+            if (error.name === 'SequelizeUniqueConstraintError') {
+                results.skipped++;
+            } else {
+                console.error('Sync SMS error:', error);
+                results.failed++;
+            }
+        }
+    }
+
+    if (results.synced > 0) {
+        lastSyncTime = new Date();
+        totalSynced += results.synced;
+    }
+
+    res.json(results);
+});
+
+router.get('/sync-stats', async (req, res) => {
+    try {
+        const mpesaTxCount = await Transaction.count({
+            where: { userId: req.query.userId || 'demo-user', provider: 'MPESA' }
+        });
+
+        res.json({
+            lastSync: lastSyncTime,
+            totalSynced,
+            mpesaTransactions: mpesaTxCount,
+            isActive: lastSyncTime && (Date.now() - new Date(lastSyncTime).getTime()) < 5 * 60 * 1000
+        });
+    } catch (error) {
+        console.error('Sync stats error:', error);
+        res.status(500).json({ error: 'Failed to get sync stats' });
     }
 });
 

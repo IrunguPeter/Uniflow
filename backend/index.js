@@ -8,6 +8,7 @@ require('./models/Transaction');
 require('./models/RecurringExpense');
 require('./models/ChatMessage');
 require('./models/BudgetPlan');
+require('./models/PendingTransaction');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,7 +18,7 @@ const financeRoutes = require('./routes/financeRoutes');
 app.use(cors());
 app.use(express.json());
 
-sequelize.sync({ alter: true })
+sequelize.sync()
     .then(async () => {
         console.log('Connected to SQLite database');
 

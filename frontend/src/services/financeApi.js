@@ -95,3 +95,23 @@ export async function getChartData(userId = 'demo-user') {
   const { data } = await api.get('/charts', { params: { userId } });
   return data;
 }
+
+export async function getSyncStats(userId = 'demo-user') {
+  const { data } = await api.get('/sync-stats', { params: { userId } });
+  return data;
+}
+
+export async function getPendingTransactions(userId = 'demo-user') {
+  const { data } = await api.get('/pending-transactions', { params: { userId } });
+  return data;
+}
+
+export async function categorizeTransaction(id, category, description) {
+  const { data } = await api.post(`/pending-transactions/${id}/categorize`, { category, description });
+  return data;
+}
+
+export async function ignoreTransaction(id) {
+  const { data } = await api.post(`/pending-transactions/${id}/ignore`);
+  return data;
+}
