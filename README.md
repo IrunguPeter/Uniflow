@@ -112,3 +112,4 @@ PORT=5000
 
 See [`GEMMA_CLOUD_SETUP.md`](GEMMA_CLOUD_SETUP.md) for instructions on switching from local Ollama to Google AI Studio, OpenRouter, Groq, or a self-hosted Gemma 4 endpoint.
 # Uniflow
+# Money-manager
