@@ -1,5 +1,9 @@
 node_modules
 build
 .env
+.env.*
 .git
+.gitignore
 npm-debug.log
+README.md
+*.md

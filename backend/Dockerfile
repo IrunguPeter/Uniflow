@@ -1,19 +1,19 @@
+# syntax=docker/dockerfile:1.4
 # Backend Dockerfile for UniFlow Finance
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies required for native sqlite3 compilation on alpine
+# Install native compilation dependencies for sqlite3 on Alpine
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
 
-# Clean install dependencies
-RUN npm install
+# Leverage Docker cache mount for npm cache
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --omit=dev --no-audit
 
-COPY . .
-
-# Final runtime image
+# Stage 2: Minimal Runtime Image on Alpine
 FROM node:20-alpine
 
 WORKDIR /app
@@ -21,9 +21,16 @@ WORKDIR /app
 # SQLite runtime libraries
 RUN apk add --no-cache sqlite-libs
 
-COPY --from=builder /app /app
+# Copy built node_modules with Alpine-matched native bindings
+COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
+COPY index.js ./
+COPY models ./models
+COPY routes ./routes
+COPY services ./services
+COPY utils ./utils
 
-# Create directory for persistent SQLite database
+# Directory for SQLite persistent volume
 RUN mkdir -p /app/data
 
 ENV NODE_ENV=production
