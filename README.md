@@ -28,16 +28,26 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 | Backend | Node.js, Express.js, Sequelize ORM, SQLite |
 | AI | Groq (Llama 3.3 70B or other models) |
 
-## Running the App
+### Option A: Using Docker (Recommended)
+```bash
+# Build and start both frontend and backend
+docker compose up -d
 
-### Backend
+# Visit:
+# Frontend: http://localhost:3000
+# Backend API: http://localhost:5000
+```
+
+### Option B: Local Development
+
+#### Backend
 ```bash
 cd backend
 npm install
 npm run dev          # starts on port 5000
 ```
 
-### Frontend
+#### Frontend
 ```bash
 cd frontend
 npm install

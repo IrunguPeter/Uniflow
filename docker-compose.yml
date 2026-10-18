@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: uniflow-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - DB_STORAGE=/app/data/database.sqlite
+      - GEMMA_PROVIDER=${GEMMA_PROVIDER:-groq}
+      - GEMMA_API_KEY=${GEMMA_API_KEY:-}
+      - GEMMA_MODEL=${GEMMA_MODEL:-llama-3.3-70b-versatile}
+    volumes:
+      - uniflow-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: uniflow-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  uniflow-data:
+    name: uniflow_sqlite_data
