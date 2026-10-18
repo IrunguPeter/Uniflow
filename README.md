@@ -28,14 +28,18 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 | Backend | Node.js, Express.js, Sequelize ORM, SQLite |
 | AI | Groq (Llama 3.3 70B or other models) |
 
-### Option A: Using Docker (Recommended)
+### Option A: Using Docker / Home Server (Recommended)
 ```bash
+# Optional: customize ports in your root .env file:
+# FRONTEND_PORT=8080
+# BACKEND_PORT=5050
+
 # Build and start both frontend and backend
 docker compose up -d
 
-# Visit:
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:5000
+# Access on your local network / home server:
+# Web UI:     http://<server-ip>:8080   (or http://localhost:8080)
+# Backend API: http://<server-ip>:5050   (or http://localhost:5050)
 ```
 
 ### Option B: Local Development
