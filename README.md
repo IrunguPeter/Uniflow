@@ -58,12 +58,13 @@ npm install
 npm start            # starts on port 3000
 ```
 
-### Environment Variables (backend `.env`)
+### Environment Variables (Create `.env` in root or `backend/.env`)
 ```env
-GEMMA_PROVIDER=groq
-GEMMA_API_KEY=your-groq-key
+AI_PROVIDER=groq
+GROQ_API_KEY=gsk_your_groq_api_key_here
 GEMMA_MODEL=llama-3.3-70b-versatile
-PORT=5000
+FRONTEND_PORT=8080
+BACKEND_PORT=5050
 ```
 
 ## Features

@@ -11,8 +11,10 @@ services:
       - PORT=5000
       - NODE_ENV=production
       - DB_STORAGE=/app/data/database.sqlite
+      - AI_PROVIDER=${AI_PROVIDER:-groq}
+      - GROQ_API_KEY=${GROQ_API_KEY:-${GEMMA_API_KEY:-}}
       - GEMMA_PROVIDER=${GEMMA_PROVIDER:-groq}
-      - GEMMA_API_KEY=${GEMMA_API_KEY:-}
+      - GEMMA_API_KEY=${GEMMA_API_KEY:-${GROQ_API_KEY:-}}
       - GEMMA_MODEL=${GEMMA_MODEL:-llama-3.3-70b-versatile}
     volumes:
       - uniflow-data:/app/data

@@ -29,11 +29,11 @@ Rules:
 
 class AiFinancialAdvisor {
     static async callAI(messages) {
-        const provider = process.env.GEMMA_PROVIDER || 'google';
-        const apiKey = process.env.GEMMA_API_KEY;
+        const provider = (process.env.GEMMA_PROVIDER || process.env.AI_PROVIDER || 'groq').toLowerCase();
+        const apiKey = process.env.GROQ_API_KEY || process.env.GEMMA_API_KEY;
 
         if (!apiKey) {
-            throw new Error('GEMMA_API_KEY not set in .env');
+            throw new Error('API key not set. Please add GROQ_API_KEY or GEMMA_API_KEY in your .env file');
         }
 
         if (provider === 'google') {
