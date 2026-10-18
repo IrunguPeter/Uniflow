@@ -3,7 +3,7 @@ const router = express.Router();
 const BudgetService = require('../services/budgetService');
 const AiFinancialAdvisor = require('../services/aiService');
 const HelbPlannerService = require('../services/helbService');
-const { parseMpesaSMS } = require('../utils/mpesaParser');
+const { parseMpesaSMS, parseBatchMpesaSMS } = require('../utils/mpesaParser');
 const Transaction = require('../models/Transaction');
 const PendingTransaction = require('../models/PendingTransaction');
 const User = require('../models/User');
@@ -39,14 +39,28 @@ router.get('/budget-insight', async (req, res) => {
             recentTransactions
         });
 
+        const leaks = await BudgetService.getSpendingLeaksAnalysis(userId || 'demo-user');
+
         res.json({
             ...budgetData,
             ...balances,
             savingsPercentage: user.savingsPercentage || 0,
-            aiAdvice: advice
+            aiAdvice: advice,
+            spendingLeaks: leaks
         });
     } catch (error) {
         console.error('Budget insight error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/spending-leaks', async (req, res) => {
+    const { userId } = req.query;
+    try {
+        const leaks = await BudgetService.getSpendingLeaksAnalysis(userId || 'demo-user');
+        res.json(leaks);
+    } catch (error) {
+        console.error('Spending leaks error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -139,62 +153,146 @@ router.delete('/transactions/:id', async (req, res) => {
     }
 });
 
-// ── M-Pesa SMS Parsing (AI-Powered) ──────────────────────────────────
+// ── M-Pesa SMS Parsing (Fast Local + AI-Ready) ─────────────────────────
 
 router.post('/parse-sms', async (req, res) => {
     const { smsText, userId } = req.body;
+    const uid = userId || 'demo-user';
 
     if (!smsText || typeof smsText !== 'string' || smsText.trim().length === 0) {
         return res.status(400).json({ error: 'SMS text is required' });
     }
 
     try {
-        // Use AI to parse the SMS
-        const aiParsed = await AiFinancialAdvisor.parseMpesaSMS(smsText.trim());
-
-        if (!aiParsed.isMpesa) {
-            return res.status(400).json({ error: 'This does not appear to be an M-Pesa SMS' });
-        }
-
-        // Create pending transaction for user to categorize
-        const pendingTx = await PendingTransaction.create({
-            userId: userId || 'demo-user',
-            rawSms: smsText.trim(),
-            amount: aiParsed.amount,
-            type: aiParsed.type,
-            counterparty: aiParsed.counterparty,
-            transactionReference: aiParsed.reference,
-            suggestedDescription: aiParsed.description,
-            status: 'pending',
-            timestamp: aiParsed.timestamp ? new Date(aiParsed.timestamp) : new Date()
-        });
-
-        res.status(201).json({ 
-            pending: true, 
-            transaction: pendingTx,
-            message: 'Transaction needs categorization' 
-        });
-    } catch (error) {
-        console.error('AI SMS Parse error:', error);
-        // Fallback to regex parser
+        // Fast, deterministic local parser for M-Pesa
         const parsed = parseMpesaSMS(smsText.trim());
+
         if (!parsed) {
-            return res.status(400).json({ error: 'Could not parse SMS' });
+            // Try AI fallback if configured
+            try {
+                const aiParsed = await AiFinancialAdvisor.parseMpesaSMS(smsText.trim());
+                if (aiParsed && aiParsed.isMpesa) {
+                    const pendingTx = await PendingTransaction.create({
+                        userId: uid,
+                        rawSms: smsText.trim(),
+                        amount: aiParsed.amount,
+                        type: aiParsed.type,
+                        counterparty: aiParsed.counterparty,
+                        transactionReference: aiParsed.reference,
+                        suggestedDescription: aiParsed.description || 'M-Pesa Transaction',
+                        status: 'pending',
+                        timestamp: aiParsed.timestamp ? new Date(aiParsed.timestamp) : new Date()
+                    });
+                    return res.status(201).json({ pending: true, transaction: pendingTx });
+                }
+            } catch {
+                // ignore AI failure
+            }
+            return res.status(400).json({ error: 'Could not extract M-Pesa details. Please check the SMS format.' });
         }
-        
+
+        // Save as pending transaction with pre-categorized details
         const pendingTx = await PendingTransaction.create({
-            userId: userId || 'demo-user',
+            userId: uid,
             rawSms: smsText.trim(),
             amount: parsed.amount,
             type: parsed.type,
-            counterparty: parsed.recipient || parsed.sender || parsed.paybill,
+            counterparty: parsed.counterparty,
             transactionReference: parsed.ref,
-            suggestedDescription: parsed.type === 'income' ? 'Received' : 'Sent',
+            suggestedDescription: parsed.description,
             status: 'pending',
-            timestamp: new Date()
+            timestamp: parsed.timestamp || new Date()
         });
 
-        res.status(201).json({ pending: true, transaction: pendingTx });
+        res.status(201).json({
+            pending: true,
+            transaction: pendingTx,
+            parsedDetails: {
+                balance: parsed.balance,
+                cost: parsed.cost,
+                suggestedCategory: parsed.category
+            },
+            message: 'M-Pesa SMS parsed successfully'
+        });
+    } catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ error: 'This transaction has already been logged or parsed.' });
+        }
+        console.error('SMS Parse error:', error);
+        res.status(500).json({ error: 'Failed to process SMS' });
+    }
+});
+
+// ── Batch Parse M-Pesa SMS (Paste multiple SMS at once) ───────────────
+
+router.post('/parse-batch-sms', async (req, res) => {
+    const { batchText, autoConfirm, userId } = req.body;
+    const uid = userId || 'demo-user';
+
+    if (!batchText || typeof batchText !== 'string' || batchText.trim().length === 0) {
+        return res.status(400).json({ error: 'Batch SMS text is required' });
+    }
+
+    try {
+        const parsedList = parseBatchMpesaSMS(batchText.trim());
+
+        if (parsedList.length === 0) {
+            return res.status(400).json({ error: 'No valid M-Pesa messages detected in input.' });
+        }
+
+        const results = {
+            totalParsed: parsedList.length,
+            logged: 0,
+            pending: 0,
+            skipped: 0,
+            items: []
+        };
+
+        for (const item of parsedList) {
+            try {
+                if (autoConfirm) {
+                    // Create transaction directly
+                    const tx = await Transaction.create({
+                        userId: uid,
+                        amount: item.amount,
+                        description: item.description,
+                        category: item.category,
+                        type: item.type,
+                        provider: 'MPESA',
+                        transactionReference: item.ref,
+                        timestamp: item.timestamp
+                    });
+                    results.logged++;
+                    results.items.push(tx);
+                } else {
+                    // Save as pending transaction
+                    const pTx = await PendingTransaction.create({
+                        userId: uid,
+                        rawSms: item.rawSms,
+                        amount: item.amount,
+                        type: item.type,
+                        counterparty: item.counterparty,
+                        transactionReference: item.ref,
+                        suggestedDescription: item.description,
+                        status: 'pending',
+                        timestamp: item.timestamp
+                    });
+                    results.pending++;
+                    results.items.push(pTx);
+                }
+            } catch (err) {
+                if (err.name === 'SequelizeUniqueConstraintError') {
+                    results.skipped++;
+                } else {
+                    console.error('Batch item error:', err);
+                }
+            }
+        }
+
+        res.json(results);
+    } catch (error) {
+        console.error('Batch parse error:', error);
+        res.status(500).json({ error: 'Failed to process batch SMS' });
     }
 });
 

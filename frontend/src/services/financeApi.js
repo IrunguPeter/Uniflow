@@ -29,6 +29,16 @@ export async function parseSms(smsText, userId = 'demo-user') {
   return data;
 }
 
+export async function parseBatchSms(batchText, autoConfirm = false, userId = 'demo-user') {
+  const { data } = await api.post('/parse-batch-sms', { batchText, autoConfirm, userId });
+  return data;
+}
+
+export async function getSpendingLeaks(userId = 'demo-user') {
+  const { data } = await api.get('/spending-leaks', { params: { userId } });
+  return data;
+}
+
 export async function helbCalculate(totalLoan, weeksPerSemester, fixedCosts = {}) {
   const { data } = await api.post('/helb-calculate', { totalLoan, weeksPerSemester, fixedCosts });
   return data;

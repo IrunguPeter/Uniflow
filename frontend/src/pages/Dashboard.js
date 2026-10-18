@@ -270,6 +270,90 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Where Did My Money Go? - Money Leaks & Daily Burn Rate */}
+      {data.spendingLeaks && (
+        <motion.div variants={fadeUp} className="card border-2 border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg">
+                🕵️
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-dark-900">Where Your Money Goes</h3>
+                <p className="text-xs text-dark-400">Cash leak detection & survival runway</p>
+              </div>
+            </div>
+            <span className="badge bg-indigo-100 text-indigo-700 font-bold text-[11px]">
+              Last 30 Days
+            </span>
+          </div>
+
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            {/* Daily Burn */}
+            <div className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm">
+              <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Daily Burn Rate</p>
+              <p className="text-xl font-black text-dark-800">
+                KES {(data.spendingLeaks.dailyBurnRate || 0).toLocaleString()} <span className="text-xs font-normal text-dark-400">/day</span>
+              </p>
+              <p className="text-[11px] text-dark-500 mt-1">Average daily spending</p>
+            </div>
+
+            {/* Survival Runway */}
+            <div className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm">
+              <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Survival Runway</p>
+              <p className={`text-xl font-black ${
+                data.spendingLeaks.runwayDays <= 7 ? 'text-red-500' :
+                data.spendingLeaks.runwayDays <= 14 ? 'text-amber-500' : 'text-primary'
+              }`}>
+                {data.spendingLeaks.runwayDays === 999 ? '∞' : `${data.spendingLeaks.runwayDays} Days`}
+              </p>
+              <p className="text-[11px] text-dark-500 mt-1">
+                {data.spendingLeaks.runwayDays <= 7 ? '⚠️ Funds low! Slow down spending' : 'At current daily burn rate'}
+              </p>
+            </div>
+
+            {/* Micro-spend Leaks */}
+            <div className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm">
+              <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Small Drains (&lt; Ksh 300)</p>
+              <p className="text-xl font-black text-amber-600">
+                KES {(data.spendingLeaks.microSpending?.total || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-dark-500 mt-1">
+                {data.spendingLeaks.microSpending?.count || 0} purchases ({data.spendingLeaks.microSpending?.percentage || 0}% of total)
+              </p>
+            </div>
+          </div>
+
+          {/* Micro-spend Insight Banner */}
+          {data.spendingLeaks.microSpending?.insight && (
+            <div className={`rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-center gap-2 mb-4 ${
+              data.spendingLeaks.microSpending?.percentage > 25
+                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+            }`}>
+              <span>{data.spendingLeaks.microSpending?.percentage > 25 ? '⚠️' : '💡'}</span>
+              <span>{data.spendingLeaks.microSpending?.insight}</span>
+            </div>
+          )}
+
+          {/* Top Drains List */}
+          {data.spendingLeaks.topDrains && data.spendingLeaks.topDrains.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-dark-600 uppercase tracking-wider mb-2">Top Money Drains</p>
+              <div className="space-y-2">
+                {data.spendingLeaks.topDrains.slice(0, 3).map((drain, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs bg-white rounded-xl px-3 py-2 border border-dark-100">
+                    <span className="font-semibold text-dark-700 truncate max-w-[200px]">{drain.payee}</span>
+                    <span className="font-extrabold text-dark-900">KES {drain.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Quick Actions */}
       <motion.div variants={fadeUp}>
         <p className="section-title">Quick Actions</p>

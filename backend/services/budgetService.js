@@ -193,6 +193,115 @@ class BudgetService {
             categoryDetails
         };
     }
+
+    /**
+     * Solves the "Where did my money disappear to?" problem:
+     * - Micro-spending (< Ksh 300) analysis (the silent cash bleed)
+     * - Top money drain categories
+     * - Daily burn rate & survival runway (days until funds run dry)
+     * - Weekend vs Weekday spending surge
+     */
+    static async getSpendingLeaksAnalysis(userId) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const transactions = await Transaction.findAll({
+            where: {
+                userId,
+                type: 'expense',
+                timestamp: { [Op.gte]: thirtyDaysAgo }
+            },
+            order: [['timestamp', 'DESC']]
+        });
+
+        const balances = await this.getBalance(userId);
+        const totalBalance = balances.balance || 0;
+
+        let total30DaySpend = 0;
+        let microSpendTotal = 0;
+        let microSpendCount = 0;
+        const categoryMap = {};
+        const payeeMap = {};
+        let weekendSpend = 0;
+        let weekdaySpend = 0;
+
+        for (const tx of transactions) {
+            const amt = tx.amount;
+            total30DaySpend += amt;
+
+            // Micro-spending threshold (transactions <= Ksh 300)
+            if (amt <= 300) {
+                microSpendTotal += amt;
+                microSpendCount++;
+            }
+
+            // Category breakdown
+            const cat = tx.category || 'Other';
+            categoryMap[cat] = (categoryMap[cat] || 0) + amt;
+
+            // Payee / Recipient breakdown
+            const payee = tx.description || 'Unknown';
+            payeeMap[payee] = (payeeMap[payee] || 0) + amt;
+
+            // Weekend vs Weekday analysis
+            const day = new Date(tx.timestamp).getDay();
+            if (day === 0 || day === 6) { // Sunday = 0, Saturday = 6
+                weekendSpend += amt;
+            } else {
+                weekdaySpend += amt;
+            }
+        }
+
+        const topCategories = Object.entries(categoryMap)
+            .map(([category, amount]) => ({
+                category,
+                amount,
+                percentage: total30DaySpend > 0 ? Math.round((amount / total30DaySpend) * 100) : 0
+            }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 5);
+
+        const topDrains = Object.entries(payeeMap)
+            .map(([payee, amount]) => ({ payee, amount }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 5);
+
+        // Daily Burn Rate (average over 30 days or active days)
+        const daysTracked = Math.max(1, Math.min(30, Math.ceil((new Date() - thirtyDaysAgo) / (1000 * 60 * 60 * 24))));
+        const dailyBurnRate = Math.round(total30DaySpend / daysTracked);
+
+        // Runway: How many days of funds left at current burn rate
+        const runwayDays = dailyBurnRate > 0 && totalBalance > 0
+            ? Math.floor(totalBalance / dailyBurnRate)
+            : (totalBalance <= 0 ? 0 : 999);
+
+        // Micro-spend percentage of total spending
+        const microSpendPercent = total30DaySpend > 0 ? Math.round((microSpendTotal / total30DaySpend) * 100) : 0;
+
+        return {
+            total30DaySpend,
+            dailyBurnRate,
+            runwayDays,
+            totalBalance,
+            microSpending: {
+                total: microSpendTotal,
+                count: microSpendCount,
+                percentage: microSpendPercent,
+                insight: microSpendPercent > 25
+                    ? `Warning: ${microSpendPercent}% of your money is leaking in small purchases under Ksh 300!`
+                    : `Good job: Small purchases make up ${microSpendPercent}% of your spending.`
+            },
+            topCategories,
+            topDrains,
+            weekendVsWeekday: {
+                weekend: weekendSpend,
+                weekday: weekdaySpend,
+                weekendRatio: (weekendSpend + weekdaySpend) > 0
+                    ? Math.round((weekendSpend / (weekendSpend + weekdaySpend)) * 100)
+                    : 0
+            }
+        };
+    }
 }
 
 module.exports = BudgetService;
