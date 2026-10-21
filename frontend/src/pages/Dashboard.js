@@ -51,7 +51,7 @@ export default function Dashboard() {
         </svg>
       </div>
       <p className="text-dark-600 font-semibold mb-1">Could not load your data</p>
-      <p className="text-sm text-dark-400">Make sure the backend is running on port 5000</p>
+      <p className="text-sm text-dark-400">Make sure the backend is running on port 5070</p>
     </div>
   );
 

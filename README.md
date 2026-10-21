@@ -48,7 +48,7 @@ docker compose up -d
 ```bash
 cd backend
 npm install
-npm run dev          # starts on port 5000
+npm run dev          # starts on port 5070
 ```
 
 #### Frontend
