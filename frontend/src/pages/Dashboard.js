@@ -169,6 +169,28 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Transfer CTA — move money between M-Pesa, Bank and Cash */}
+      <motion.div variants={fadeUp}>
+        <button onClick={() => navigate('/transfer')}
+          className="w-full flex items-center gap-4 rounded-3xl border border-primary-200/60 bg-gradient-to-br from-primary-50 via-white to-emerald-50/60 px-5 py-4 text-left transition-all duration-200 hover:shadow-md active:scale-[0.99]">
+          <div className="w-11 h-11 rounded-2xl gradient-hero flex items-center justify-center flex-shrink-0 shadow-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 014-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 01-4 4H3" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-dark-800">Transfer money</p>
+            <p className="text-[11px] text-dark-400 mt-0.5">Move money between M-Pesa, your bank and cash</p>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </motion.div>
+
       {/* Budget + AI Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Weekly Budget */}
@@ -388,17 +410,23 @@ export default function Dashboard() {
             {data.recentTransactions.slice(0, 3).map((tx, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  tx.type === 'income' ? 'bg-primary-100' : 'bg-dark-100'
+                  tx.type === 'transfer' ? 'bg-primary-100' : tx.type === 'income' ? 'bg-primary-100' : 'bg-dark-100'
                 }`}>
-                  <span className="text-lg">{tx.type === 'income' ? '💰' : '💸'}</span>
+                  <span className="text-lg">{tx.type === 'transfer' ? '🔁' : tx.type === 'income' ? '💰' : '💸'}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-dark-800 truncate">{tx.description}</p>
-                  <p className="text-[10px] text-dark-400">{tx.category}</p>
+                  <p className="text-[10px] text-dark-400">
+                    {tx.type === 'transfer' ? `Transfer • ${tx.provider} → ${tx.toProvider}` : tx.category}
+                  </p>
                 </div>
-                <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-primary-600' : 'text-dark-700'}`}>
-                  {tx.type === 'income' ? '+' : '-'} KES {tx.amount.toLocaleString()}
-                </p>
+                {tx.type === 'transfer' ? (
+                  <p className="text-sm font-bold text-primary-600">KES {tx.amount.toLocaleString()}</p>
+                ) : (
+                  <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-primary-600' : 'text-dark-700'}`}>
+                    {tx.type === 'income' ? '+' : '-'} KES {tx.amount.toLocaleString()}
+                  </p>
+                )}
               </div>
             ))}
           </div>

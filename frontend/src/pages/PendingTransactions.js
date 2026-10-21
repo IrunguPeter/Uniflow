@@ -21,16 +21,26 @@ const CATEGORIES = [
   { value: 'Other', icon: '📦', color: 'bg-dark-100 text-dark-700' },
 ];
 
+const PROVIDER_LABELS = {
+  MPESA: 'M-Pesa',
+  NCBA: 'NCBA',
+  IM: 'I&M',
+  CASH: 'Cash',
+};
+
 function PendingCard({ tx, onCategorize, onIgnore }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [description, setDescription] = useState(tx.suggestedDescription || '');
   const [submitting, setSubmitting] = useState(false);
 
+  // Cash withdrawals / deposits move money between the user's own accounts
+  const isTransfer = Boolean(tx.fromProvider && tx.toProvider);
+
   const handleCategorize = async () => {
-    if (!selectedCategory) return;
+    if (!isTransfer && !selectedCategory) return;
     setSubmitting(true);
     try {
-      await onCategorize(tx.id, selectedCategory, description);
+      await onCategorize(tx.id, selectedCategory, description, isTransfer);
     } finally {
       setSubmitting(false);
     }
@@ -42,13 +52,13 @@ function PendingCard({ tx, onCategorize, onIgnore }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-            tx.type === 'income' ? 'bg-primary-100' : 'bg-dark-100'
+            isTransfer ? 'bg-primary-100' : tx.type === 'income' ? 'bg-primary-100' : 'bg-dark-100'
           }`}>
-            <span className="text-lg">{tx.type === 'income' ? '💰' : '💸'}</span>
+            <span className="text-lg">{isTransfer ? '🔁' : tx.type === 'income' ? '💰' : '💸'}</span>
           </div>
           <div>
             <p className="text-sm font-bold text-dark-800">
-              {tx.type === 'income' ? '+' : '-'} KES {tx.amount.toLocaleString()}
+              {isTransfer ? 'KES ' : tx.type === 'income' ? '+ KES ' : '- KES '}{tx.amount.toLocaleString()}
             </p>
             <p className="text-[10px] text-dark-400">
               {tx.counterparty || 'Unknown'} {tx.transactionReference ? `• ${tx.transactionReference}` : ''}
@@ -63,6 +73,16 @@ function PendingCard({ tx, onCategorize, onIgnore }) {
         <p className="text-[10px] text-dark-500 font-mono leading-relaxed line-clamp-2">{tx.rawSms}</p>
       </div>
 
+      {isTransfer && (
+        <div className="flex items-center gap-2 rounded-xl bg-primary-50 border border-primary-200 px-3 py-2.5 mb-3">
+          <span className="text-sm">🔁</span>
+          <p className="text-xs font-bold text-primary-700">
+            {PROVIDER_LABELS[tx.fromProvider]} <span className="text-primary-400 mx-1">→</span> {PROVIDER_LABELS[tx.toProvider]}
+          </p>
+          <span className="ml-auto text-[10px] font-semibold text-primary-600 uppercase tracking-wide">Transfer</span>
+        </div>
+      )}
+
       {/* Description input */}
       <input
         type="text"
@@ -73,27 +93,29 @@ function PendingCard({ tx, onCategorize, onIgnore }) {
       />
 
       {/* Category grid */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        {CATEGORIES.map((cat) => (
-          <button key={cat.value}
-            onClick={() => setSelectedCategory(cat.value)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
-              selectedCategory === cat.value
-                ? `${cat.color} ring-2 ring-offset-1 ring-current`
-                : 'bg-dark-50 text-dark-500 hover:bg-dark-100'
-            }`}>
-            <span>{cat.icon}</span>
-            <span>{cat.value}</span>
-          </button>
-        ))}
-      </div>
+      {!isTransfer && (
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {CATEGORIES.map((cat) => (
+            <button key={cat.value}
+              onClick={() => setSelectedCategory(cat.value)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                selectedCategory === cat.value
+                  ? `${cat.color} ring-2 ring-offset-1 ring-current`
+                  : 'bg-dark-50 text-dark-500 hover:bg-dark-100'
+              }`}>
+              <span>{cat.icon}</span>
+              <span>{cat.value}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2">
         <button onClick={handleCategorize}
-          disabled={!selectedCategory || submitting}
+          disabled={(!isTransfer && !selectedCategory) || submitting}
           className="flex-1 btn-primary text-sm py-2.5 disabled:opacity-40 disabled:cursor-not-allowed">
-          {submitting ? 'Saving...' : 'Categorize'}
+          {submitting ? 'Saving...' : isTransfer ? 'Record Transfer' : 'Categorize'}
         </button>
         <button onClick={() => onIgnore(tx.id)}
           className="px-4 py-2.5 rounded-xl text-sm font-semibold text-dark-500 hover:bg-dark-100 transition">
@@ -118,8 +140,8 @@ export default function PendingTransactions() {
 
   useEffect(() => { fetchPending(); }, []);
 
-  const handleCategorize = async (id, category, description) => {
-    await categorizeTransaction(id, category, description);
+  const handleCategorize = async (id, category, description, asTransfer = false) => {
+    await categorizeTransaction(id, category, description, asTransfer);
     setPending((prev) => prev.filter((tx) => tx.id !== id));
   };
 

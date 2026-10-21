@@ -30,6 +30,16 @@ const PendingTransaction = sequelize.define('PendingTransaction', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    // Set when the parsed SMS is a movement of money between the user's own
+    // accounts (e.g. M-Pesa cash withdrawal -> Cash, agent deposit -> M-Pesa)
+    fromProvider: {
+        type: DataTypes.ENUM('MPESA', 'NCBA', 'IM', 'CASH'),
+        allowNull: true
+    },
+    toProvider: {
+        type: DataTypes.ENUM('MPESA', 'NCBA', 'IM', 'CASH'),
+        allowNull: true
+    },
     status: {
         type: DataTypes.ENUM('pending', 'categorized', 'ignored'),
         defaultValue: 'pending'

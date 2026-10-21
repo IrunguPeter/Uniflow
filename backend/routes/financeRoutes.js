@@ -10,6 +10,8 @@ const User = require('../models/User');
 const RecurringExpense = require('../models/RecurringExpense');
 const ChatMessage = require('../models/ChatMessage');
 const BudgetPlan = require('../models/BudgetPlan');
+const { AccountService, getAccountLabel } = require('../services/accountService');
+const { TransferService, TransferError } = require('../services/transferService');
 
 const VALID_TYPES = ['income', 'expense', 'transfer'];
 const VALID_PROVIDERS = ['MPESA', 'NCBA', 'IM', 'CASH'];
@@ -84,7 +86,7 @@ router.get('/transactions', async (req, res) => {
 });
 
 router.post('/transactions', async (req, res) => {
-    const { userId, amount, description, category, type, provider, timestamp } = req.body;
+    const { userId, amount, description, category, type, provider, toProvider, timestamp } = req.body;
     const uid = userId || 'demo-user';
 
     if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -102,6 +104,23 @@ router.post('/transactions', async (req, res) => {
 
     try {
         const txType = type || 'expense';
+
+        // Transfers between the user's own accounts need a destination account
+        if (txType === 'transfer') {
+            if (!toProvider) {
+                return res.status(400).json({ error: 'A destination account is required for transfers' });
+            }
+            const transfer = await TransferService.create({
+                userId: uid,
+                from: provider,
+                to: toProvider,
+                amount,
+                description: description.trim(),
+                timestamp
+            });
+            return res.status(201).json({ transaction: transfer, transfer });
+        }
+
         const transaction = await Transaction.create({
             userId: uid,
             amount,
@@ -153,6 +172,77 @@ router.delete('/transactions/:id', async (req, res) => {
     }
 });
 
+// ── Accounts ───────────────────────────────────────────────────────
+
+router.get('/accounts', async (req, res) => {
+    const { userId } = req.query;
+    const uid = userId || 'demo-user';
+
+    try {
+        const accounts = await AccountService.getSummaries(uid);
+        const balances = await BudgetService.getBalance(uid);
+
+        res.json({
+            accounts,
+            totals: {
+                balance: balances.balance,
+                income: balances.income,
+                expenses: balances.expenses,
+                mpesa: balances.mpesaBalance,
+                bank: balances.bankBalance,
+                cash: balances.cashBalance,
+            },
+        });
+    } catch (error) {
+        console.error('Fetch accounts error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Transfers (between the user's own accounts) ────────────────────
+
+router.get('/transfers', async (req, res) => {
+    const { userId, limit } = req.query;
+    const uid = userId || 'demo-user';
+
+    try {
+        const transfers = await TransferService.list(uid, Math.min(Number(limit) || 50, 200));
+        res.json(transfers);
+    } catch (error) {
+        console.error('Fetch transfers error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/transfers', async (req, res) => {
+    const { userId, from, to, amount, description, timestamp, force } = req.body;
+    const uid = userId || 'demo-user';
+
+    try {
+        const transfer = await TransferService.create({
+            userId: uid,
+            from,
+            to,
+            amount,
+            description,
+            timestamp,
+            force: Boolean(force),
+        });
+
+        res.status(201).json({
+            transfer,
+            message: `Transferred KES ${Number(amount).toLocaleString()} from ${getAccountLabel(from)} to ${getAccountLabel(to)}`,
+        });
+    } catch (error) {
+        if (error instanceof TransferError) {
+            const status = error.code === 'INSUFFICIENT_FUNDS' ? 409 : 400;
+            return res.status(status).json({ error: error.message, code: error.code, ...error.details });
+        }
+        console.error('Create transfer error:', error);
+        res.status(500).json({ error: 'Failed to record transfer' });
+    }
+});
+
 // ── M-Pesa SMS Parsing (Fast Local + AI-Ready) ─────────────────────────
 
 router.post('/parse-sms', async (req, res) => {
@@ -200,6 +290,8 @@ router.post('/parse-sms', async (req, res) => {
             counterparty: parsed.counterparty,
             transactionReference: parsed.ref,
             suggestedDescription: parsed.description,
+            fromProvider: parsed.fromProvider || null,
+            toProvider: parsed.toProvider || null,
             status: 'pending',
             timestamp: parsed.timestamp || new Date()
         });
@@ -210,7 +302,9 @@ router.post('/parse-sms', async (req, res) => {
             parsedDetails: {
                 balance: parsed.balance,
                 cost: parsed.cost,
-                suggestedCategory: parsed.category
+                suggestedCategory: parsed.category,
+                fromProvider: parsed.fromProvider || null,
+                toProvider: parsed.toProvider || null
             },
             message: 'M-Pesa SMS parsed successfully'
         });
@@ -251,6 +345,24 @@ router.post('/parse-batch-sms', async (req, res) => {
         for (const item of parsedList) {
             try {
                 if (autoConfirm) {
+                    // Cash withdrawals / deposits move money between M-Pesa and
+                    // Cash — record them as transfers, not spending.
+                    if (item.type === 'transfer' && item.fromProvider && item.toProvider) {
+                        const tx = await TransferService.create({
+                            userId: uid,
+                            from: item.fromProvider,
+                            to: item.toProvider,
+                            amount: item.amount,
+                            description: item.description,
+                            timestamp: item.timestamp,
+                            transactionReference: item.ref,
+                            force: true
+                        });
+                        results.logged++;
+                        results.items.push(tx);
+                        continue;
+                    }
+
                     // Create transaction directly
                     const tx = await Transaction.create({
                         userId: uid,
@@ -274,6 +386,8 @@ router.post('/parse-batch-sms', async (req, res) => {
                         counterparty: item.counterparty,
                         transactionReference: item.ref,
                         suggestedDescription: item.description,
+                        fromProvider: item.fromProvider || null,
+                        toProvider: item.toProvider || null,
                         status: 'pending',
                         timestamp: item.timestamp
                     });
@@ -316,9 +430,9 @@ router.get('/pending-transactions', async (req, res) => {
 
 router.post('/pending-transactions/:id/categorize', async (req, res) => {
     const { id } = req.params;
-    const { category, description } = req.body;
+    const { category, description, asTransfer } = req.body;
 
-    if (!category) {
+    if (!category && !asTransfer) {
         return res.status(400).json({ error: 'Category is required' });
     }
 
@@ -326,6 +440,24 @@ router.post('/pending-transactions/:id/categorize', async (req, res) => {
         const pending = await PendingTransaction.findByPk(id);
         if (!pending) {
             return res.status(404).json({ error: 'Pending transaction not found' });
+        }
+
+        // Record as a transfer between the user's own accounts (e.g. M-Pesa -> Cash)
+        if (asTransfer && pending.fromProvider && pending.toProvider) {
+            const transfer = await TransferService.create({
+                userId: pending.userId,
+                from: pending.fromProvider,
+                to: pending.toProvider,
+                amount: pending.amount,
+                description: description || pending.suggestedDescription,
+                timestamp: pending.timestamp,
+                transactionReference: pending.transactionReference,
+                force: true
+            });
+
+            await pending.update({ status: 'categorized' });
+
+            return res.json({ transaction: transfer, transfer, pending });
         }
 
         // Create the actual transaction
@@ -347,6 +479,9 @@ router.post('/pending-transactions/:id/categorize', async (req, res) => {
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(409).json({ error: 'Transaction already exists' });
+        }
+        if (error instanceof TransferError) {
+            return res.status(400).json({ error: error.message, code: error.code });
         }
         console.error('Categorize error:', error);
         res.status(500).json({ error: 'Failed to categorize transaction' });
@@ -370,7 +505,7 @@ router.post('/pending-transactions/:id/ignore', async (req, res) => {
     }
 });
 
-// ── Auto-Sync SMS (AI-Powered) ──────────────────────────────────────
+// ── Auto-Sync SMS ───────────────────────────────────────────────────
 
 router.post('/sync-sms', async (req, res) => {
     const { messages, userId } = req.body;
@@ -385,26 +520,39 @@ router.post('/sync-sms', async (req, res) => {
     for (const msg of messages) {
         try {
             const smsText = msg.body || msg.text || '';
-            
-            // Use AI to parse
-            const aiParsed = await AiFinancialAdvisor.parseMpesaSMS(smsText);
-            
-            if (!aiParsed.isMpesa) {
-                results.skipped++;
-                continue;
+            const timestamp = msg.timestamp ? new Date(msg.timestamp) : new Date();
+
+            // Deterministic local parser first, AI fallback
+            let parsed = parseMpesaSMS(smsText);
+            if (!parsed) {
+                const aiParsed = await AiFinancialAdvisor.parseMpesaSMS(smsText);
+                if (!aiParsed || !aiParsed.isMpesa) {
+                    results.skipped++;
+                    continue;
+                }
+                parsed = {
+                    amount: aiParsed.amount,
+                    type: aiParsed.type,
+                    counterparty: aiParsed.counterparty,
+                    ref: aiParsed.reference,
+                    description: aiParsed.description || 'M-Pesa Transaction',
+                    timestamp: aiParsed.timestamp ? new Date(aiParsed.timestamp) : timestamp,
+                };
             }
 
             // Create pending transaction for user to categorize
             const pendingTx = await PendingTransaction.create({
                 userId: uid,
                 rawSms: smsText,
-                amount: aiParsed.amount,
-                type: aiParsed.type,
-                counterparty: aiParsed.counterparty,
-                transactionReference: aiParsed.reference,
-                suggestedDescription: aiParsed.description,
+                amount: parsed.amount,
+                type: parsed.type,
+                counterparty: parsed.counterparty,
+                transactionReference: parsed.ref,
+                suggestedDescription: parsed.description,
+                fromProvider: parsed.fromProvider || null,
+                toProvider: parsed.toProvider || null,
                 status: 'pending',
-                timestamp: aiParsed.timestamp ? new Date(aiParsed.timestamp) : (msg.timestamp ? new Date(msg.timestamp) : new Date())
+                timestamp: parsed.timestamp || timestamp
             });
 
             results.pending++;
@@ -465,61 +613,6 @@ router.post('/device/sync-status', async (req, res) => {
 
 let lastSyncTime = null;
 let totalSynced = 0;
-
-router.post('/sync-sms', async (req, res) => {
-    const { messages, userId } = req.body;
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: 'Messages array is required' });
-    }
-
-    const uid = userId || 'demo-user';
-    const results = { synced: 0, skipped: 0, failed: 0, transactions: [] };
-
-    for (const msg of messages) {
-        try {
-            const parsed = parseMpesaSMS(msg.body || msg.text || '');
-            if (!parsed) {
-                results.skipped++;
-                continue;
-            }
-
-            const description = parsed.type === 'income'
-                ? `Received from ${parsed.sender}`
-                : parsed.paybill
-                    ? `Paid ${parsed.paybill}`
-                    : `Sent to ${parsed.recipient}`;
-
-            const transaction = await Transaction.create({
-                userId: uid,
-                amount: parsed.amount,
-                description,
-                category: parsed.type === 'income' ? 'Allowance' : 'Other',
-                type: parsed.type,
-                provider: 'MPESA',
-                transactionReference: parsed.ref,
-                timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
-            });
-
-            results.synced++;
-            results.transactions.push(transaction);
-        } catch (error) {
-            if (error.name === 'SequelizeUniqueConstraintError') {
-                results.skipped++;
-            } else {
-                console.error('Sync SMS error:', error);
-                results.failed++;
-            }
-        }
-    }
-
-    if (results.synced > 0) {
-        lastSyncTime = new Date();
-        totalSynced += results.synced;
-    }
-
-    res.json(results);
-});
 
 router.get('/sync-stats', async (req, res) => {
     try {
@@ -786,7 +879,8 @@ router.post('/chat', async (req, res) => {
                 amount: tx.amount,
                 category: tx.category,
                 type: tx.type,
-                provider: tx.provider
+                provider: tx.provider,
+                toProvider: tx.toProvider || undefined
             })),
             topCategories
         };

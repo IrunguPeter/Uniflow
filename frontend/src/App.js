@@ -11,6 +11,7 @@ import BudgetTool from './pages/BudgetTool';
 import Charts from './pages/Charts';
 import Chat from './pages/Chat';
 import PendingTransactions from './pages/PendingTransactions';
+import Transfers from './pages/Transfers';
 
 const tabs = [
   { to: '/', label: 'Home', icon: (active) => (
@@ -79,6 +80,14 @@ const sidebarTabs = [
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#10B981' : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
       <path d="M6 12v5c3 3 9 3 12 0v-5" />
+    </svg>
+  )},
+  { to: '/transfer', label: 'Transfer', icon: (active) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#10B981' : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 014-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 01-4 4H3" />
     </svg>
   )},
 ];
@@ -204,6 +213,7 @@ function AppShell() {
                 <Route path="/budget" element={<BudgetTool />} />
                 <Route path="/charts" element={<Charts />} />
                 <Route path="/chat" element={<Chat />} />
+                <Route path="/transfer" element={<Transfers />} />
               </Routes>
             </motion.div>
           </AnimatePresence>

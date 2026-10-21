@@ -1,6 +1,7 @@
 const { Op, fn, col, literal } = require('sequelize');
 const Transaction = require('../models/Transaction');
 const RecurringExpense = require('../models/RecurringExpense');
+const { AccountService } = require('./accountService');
 
 const WEEKS_PER_MONTH = 4.33;
 const WEEKS_PER_SEMESTER = 15;
@@ -59,31 +60,35 @@ class BudgetService {
     }
 
     static async getBalance(userId) {
-        const transactions = await Transaction.findAll({ where: { userId } });
+        const accounts = await AccountService.getBalances(userId);
 
-        const mpesa = { income: 0, expenses: 0 };
-        const bank = { income: 0, expenses: 0 };
-        const cash = { income: 0, expenses: 0 };
+        const mpesa = accounts.MPESA;
+        const ncba = accounts.NCBA;
+        const im = accounts.IM;
+        const cash = accounts.CASH;
 
-        for (const tx of transactions) {
-            const target = tx.provider === 'MPESA' ? mpesa
-                : (tx.provider === 'NCBA' || tx.provider === 'IM') ? bank
-                : cash;
-            if (tx.type === 'income') target.income += tx.amount;
-            else if (tx.type === 'expense') target.expenses += tx.amount;
-        }
+        // Balances include transfers in/out, income/expense totals do not —
+        // moving money between your own accounts is not income or spending.
+        const mpesaBalance = mpesa.balance;
+        const bankBalance = ncba.balance + im.balance;
+        const cashBalance = cash.balance;
+
+        const income = mpesa.income + ncba.income + im.income + cash.income;
+        const expenses = mpesa.expenses + ncba.expenses + im.expenses + cash.expenses;
 
         return {
-            mpesaBalance: mpesa.income - mpesa.expenses,
+            mpesaBalance,
             mpesaIncome: mpesa.income,
             mpesaExpenses: mpesa.expenses,
-            bankBalance: bank.income - bank.expenses,
-            bankIncome: bank.income,
-            bankExpenses: bank.expenses,
-            cashBalance: cash.income - cash.expenses,
-            balance: (mpesa.income - mpesa.expenses) + (bank.income - bank.expenses) + (cash.income - cash.expenses),
-            income: mpesa.income + bank.income + cash.income,
-            expenses: mpesa.expenses + bank.expenses + cash.expenses,
+            bankBalance,
+            bankIncome: ncba.income + im.income,
+            bankExpenses: ncba.expenses + im.expenses,
+            cashBalance,
+            cashIncome: cash.income,
+            cashExpenses: cash.expenses,
+            balance: mpesaBalance + bankBalance + cashBalance,
+            income,
+            expenses,
         };
     }
 
@@ -94,6 +99,10 @@ class BudgetService {
         const monthlyMap = {};
 
         for (const tx of transactions) {
+            // Transfers are movements between accounts, not spending — keep
+            // them out of the category and monthly charts.
+            if (tx.type === 'transfer') continue;
+
             const cat = tx.category || 'Other';
             if (!categoryMap[cat]) categoryMap[cat] = { income: 0, expense: 0 };
             if (tx.type === 'income') categoryMap[cat].income += tx.amount;

@@ -8,14 +8,16 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 ├── backend/               # Node.js/Express API
 │   ├── models/            # Sequelize models (User, Transaction, RecurringExpense, ChatMessage)
 │   ├── routes/            # financeRoutes.js — all API endpoints
-│   ├── services/          # budgetService, aiService, helbService, db
+│   ├── services/          # budgetService, accountService, transferService, aiService,
+│   │                      # helbService, migrations, db
 │   └── utils/             # mpesaParser.js — regex-based SMS parser
 │
 ├── frontend/              # React.js mobile-first web app
 │   ├── src/pages/         # Dashboard, Charts, Chat, AddTransaction, Transactions,
-│   │                      # HelbPlanner, RecurringExpenses, ParseSms
+│   │                      # Transfers, HelbPlanner, RecurringExpenses, ParseSms
 │   └── src/services/      # financeApi.js — Axios API client
 │
+├── docs/                  # bank-api-integration.md, transfers.md
 ├── GEMMA_CLOUD_SETUP.md   # Instructions for connecting to Gemma 4 cloud
 └── WRITEUP.md             # Project writeup
 ```
@@ -80,6 +82,18 @@ BACKEND_PORT=5050
 - Account picker (M-Pesa, NCBA, I&M, Cash)
 - Full transaction history with category icons and color coding
 
+### Transfers (bank ⇄ M-Pesa ⇄ cash)
+- Move money between your own accounts: **M-Pesa → Bank → Cash** and back
+- Live account balances on the transfer screen, with a before/after preview
+- Transfers move balances but are **never counted as spending** — your weekly
+  budget and spending-leak analysis stay honest
+- Insufficient-balance guard with an explicit "record anyway" override
+- Transfers show up in the Ledger with a `M-Pesa → NCBA` route, and are
+  matched by the account filters
+- M-Pesa SMS cash withdrawals and agent deposits are detected automatically and
+  can be recorded as **M-Pesa ⇄ Cash** transfers
+- See [`docs/transfers.md`](docs/transfers.md) for the data model
+
 ### M-Pesa SMS Parser
 - Paste real Safaricom M-Pesa notification texts to auto-log transactions
 - Supports send, receive, paybill, and withdrawal formats
@@ -113,7 +127,13 @@ BACKEND_PORT=5050
 | GET | `/api/finance/budget-insight` | Weekly budget + AI advice + separate balances |
 | GET | `/api/finance/transactions` | Transaction history (up to 50) |
 | POST | `/api/finance/transactions` | Add transaction (with validation) |
+| GET | `/api/finance/accounts` | Per-account balances (M-Pesa, NCBA, I&M, Cash) |
+| GET | `/api/finance/transfers` | Transfer history between own accounts |
+| POST | `/api/finance/transfers` | Transfer between two of your accounts |
 | POST | `/api/finance/parse-sms` | Parse M-Pesa SMS and log transaction |
+| POST | `/api/finance/parse-batch-sms` | Parse many M-Pesa SMS at once |
+| GET | `/api/finance/pending-transactions` | Transactions awaiting categorization |
+| POST | `/api/finance/pending-transactions/:id/categorize` | Categorize (or record as transfer) |
 | POST | `/api/finance/helb-calculate` | HELB loan weekly allocation calculator |
 | GET | `/api/finance/recurring-expenses` | List recurring expenses |
 | POST | `/api/finance/recurring-expenses` | Add recurring expense |

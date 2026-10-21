@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const sequelize = require('./services/db');
+const { runMigrations } = require('./services/migrations');
 
 require('./models/User');
 require('./models/Transaction');
@@ -19,6 +20,7 @@ app.use(cors());
 app.use(express.json());
 
 sequelize.sync()
+    .then(() => runMigrations(sequelize))
     .then(async () => {
         console.log('Connected to SQLite database');
 

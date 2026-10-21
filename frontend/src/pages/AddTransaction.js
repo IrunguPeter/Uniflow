@@ -20,7 +20,6 @@ const CATEGORIES = [
 const TYPES = [
   { key: 'expense', label: 'Expense', color: 'bg-red-500' },
   { key: 'income', label: 'Income', color: 'bg-primary' },
-  { key: 'transfer', label: 'Transfer', color: 'bg-blue-500' },
 ];
 
 const PROVIDERS = [
@@ -154,6 +153,26 @@ export default function AddTransaction() {
               Saving...
             </span>
           ) : 'Save Transaction'}
+        </button>
+
+        {/* Transfers between your own accounts live on their own screen */}
+        <button type="button" onClick={() => navigate('/transfer')}
+          className="w-full flex items-center gap-3 rounded-2xl border border-dark-100 bg-white px-4 py-3.5 text-left transition-all duration-200 hover:border-primary-200 hover:shadow-sm active:scale-[0.99]">
+          <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 014-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 01-4 4H3" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-secondary">Moving money between accounts?</p>
+            <p className="text-[11px] text-muted mt-0.5">Transfer between M-Pesa, bank and cash</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </button>
       </form>
     </motion.div>

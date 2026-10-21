@@ -208,8 +208,8 @@ export default function ParseSms() {
                     <p className="font-bold text-dark-800 truncate">{item.description}</p>
                     <span className="text-[10px] text-muted">{item.category}</span>
                   </div>
-                  <span className={`font-black ${item.type === 'income' ? 'text-primary' : 'text-dark-800'}`}>
-                    {item.type === 'income' ? '+' : '-'} KES {item.amount.toLocaleString()}
+                  <span className={`font-black ${item.type === 'transfer' ? 'text-primary' : item.type === 'income' ? 'text-primary' : 'text-dark-800'}`}>
+                    {item.type === 'transfer' ? '' : item.type === 'income' ? '+' : '-'} KES {item.amount.toLocaleString()}
                   </span>
                 </div>
               ))}

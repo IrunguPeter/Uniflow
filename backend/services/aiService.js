@@ -126,12 +126,15 @@ Provide a concise, relatable financial tip (under 3 sentences).`;
 - Total Balance: Ksh ${(financialContext.balance || 0).toLocaleString()}
 - M-Pesa Balance: Ksh ${(financialContext.mpesaBalance || 0).toLocaleString()}
 - Bank Balance: Ksh ${(financialContext.bankBalance || 0).toLocaleString()}
+- Cash Balance: Ksh ${(financialContext.cashBalance || 0).toLocaleString()}
 - Weekly Budget: Ksh ${(financialContext.weeklyLimit || 0).toLocaleString()}
 - Spent This Week: Ksh ${(financialContext.totalSpent || 0).toLocaleString()}
 - Remaining: Ksh ${(financialContext.remaining || 0).toLocaleString()}
 - Budget Status: ${financialContext.status || 'OK'}
 - Recent Transactions: ${JSON.stringify(financialContext.recentTransactions || [])}
-- Top Expense Categories: ${JSON.stringify(financialContext.topCategories || [])}`;
+- Top Expense Categories: ${JSON.stringify(financialContext.topCategories || [])}
+
+Note: transactions of type "transfer" move money between the student's own accounts (M-Pesa, bank, cash). They are neither income nor spending, so never count them as either.`;
 
         const messages = [
             { role: 'system', content: SYSTEM_PROMPT + '\n\n' + contextPrompt },

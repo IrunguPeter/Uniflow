@@ -14,6 +14,21 @@ export async function getTransactions(userId = 'demo-user') {
   return data;
 }
 
+export async function getAccounts(userId = 'demo-user') {
+  const { data } = await api.get('/accounts', { params: { userId } });
+  return data;
+}
+
+export async function getTransfers(userId = 'demo-user') {
+  const { data } = await api.get('/transfers', { params: { userId } });
+  return data;
+}
+
+export async function createTransfer(transfer, userId = 'demo-user') {
+  const { data } = await api.post('/transfers', { ...transfer, userId });
+  return data;
+}
+
 export async function addTransaction(tx, userId = 'demo-user') {
   const { data } = await api.post('/transactions', { ...tx, userId });
   return data;
@@ -116,8 +131,8 @@ export async function getPendingTransactions(userId = 'demo-user') {
   return data;
 }
 
-export async function categorizeTransaction(id, category, description) {
-  const { data } = await api.post(`/pending-transactions/${id}/categorize`, { category, description });
+export async function categorizeTransaction(id, category, description, asTransfer = false) {
+  const { data } = await api.post(`/pending-transactions/${id}/categorize`, { category, description, asTransfer });
   return data;
 }
 

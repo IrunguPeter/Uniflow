@@ -14,6 +14,7 @@ const categoryConfig = {
   Allowance: { icon: '💰', color: 'bg-green-100' },
   Salary: { icon: '💼', color: 'bg-blue-100' },
   Savings: { icon: '🐷', color: 'bg-pink-100' },
+  Transfer: { icon: '🔁', color: 'bg-emerald-100' },
   Other: { icon: '📌', color: 'bg-gray-100' },
 };
 
@@ -22,6 +23,12 @@ const providerConfig = {
   NCBA: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400' },
   IM: { bg: 'bg-violet-50', text: 'text-violet-600', dot: 'bg-violet-400' },
   CASH: { bg: 'bg-gray-50', text: 'text-gray-500', dot: 'bg-gray-400' },
+};
+
+const providerLabel = (provider) => {
+  if (provider === 'IM') return 'I&M';
+  if (provider === 'MPESA') return 'M-Pesa';
+  return provider;
 };
 
 const FILTER_TABS = [
@@ -33,8 +40,9 @@ const FILTER_TABS = [
 
 function matchesFilter(tx, filter) {
   if (filter === 'all') return true;
-  if (filter === 'bank') return tx.provider === 'NCBA' || tx.provider === 'IM';
-  return tx.provider === filter;
+  const accounts = tx.type === 'transfer' ? [tx.provider, tx.toProvider] : [tx.provider];
+  if (filter === 'bank') return accounts.some((a) => a === 'NCBA' || a === 'IM');
+  return accounts.includes(filter);
 }
 
 function groupByDate(txns) {
@@ -93,10 +101,22 @@ export default function Transactions() {
     <div className="space-y-4">
       <div className="flex items-center justify-between pt-1">
         <h1 className="text-xl font-extrabold text-secondary">Transactions</h1>
-        <button onClick={() => navigate('/add')}
-          className="bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95">
-          + Add New
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/transfer')}
+            className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 014-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 01-4 4H3" />
+            </svg>
+            Transfer
+          </button>
+          <button onClick={() => navigate('/add')}
+            className="bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95">
+            + Add New
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -145,16 +165,34 @@ export default function Transactions() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-secondary truncate">{tx.description}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-muted">{tx.category}</span>
-                          <span className="w-1 h-1 rounded-full bg-gray-300" />
-                          <span className={`text-[10px] ${prov.text}`}>{tx.provider === 'IM' ? 'I&M' : tx.provider}</span>
+                          {tx.type === 'transfer' ? (
+                            <>
+                              <span className="text-[10px] font-bold text-primary-600">Transfer</span>
+                              <span className="w-1 h-1 rounded-full bg-gray-300" />
+                              <span className={`text-[10px] ${prov.text}`}>{providerLabel(tx.provider)}</span>
+                              <span className="text-[10px] text-gray-400">→</span>
+                              <span className={`text-[10px] ${(providerConfig[tx.toProvider] || providerConfig.CASH).text}`}>
+                                {providerLabel(tx.toProvider)}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[10px] text-muted">{tx.category}</span>
+                              <span className="w-1 h-1 rounded-full bg-gray-300" />
+                              <span className={`text-[10px] ${prov.text}`}>{providerLabel(tx.provider)}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <div>
-                          <p className={`text-sm font-extrabold ${tx.type === 'income' ? 'text-primary' : 'text-secondary'}`}>
-                            {tx.type === 'income' ? '+' : '-'} KES {tx.amount.toLocaleString()}
-                          </p>
+                          {tx.type === 'transfer' ? (
+                            <p className="text-sm font-extrabold text-primary">KES {tx.amount.toLocaleString()}</p>
+                          ) : (
+                            <p className={`text-sm font-extrabold ${tx.type === 'income' ? 'text-primary' : 'text-secondary'}`}>
+                              {tx.type === 'income' ? '+' : '-'} KES {tx.amount.toLocaleString()}
+                            </p>
+                          )}
                           <p className="text-[10px] text-muted mt-0.5">
                             {new Date(tx.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           </p>

@@ -133,8 +133,14 @@ function parseMpesaSMS(text) {
     let ref = null;
     const refMatchStart = clean.match(/^([A-Z0-9]{6,12})\s+Confirmed/i);
     const refMatchEnd = clean.match(/Transaction code,?\s*([A-Z0-9]{6,12})/i);
+    // Agent/ATM messages carry a trailing "Ref XXXXXXXX" — always prefer it
+    // over the generic code, otherwise the agent name ("KENYATOWN") becomes
+    // the reference and repeat visits to the same agent look like duplicates.
+    const refMatchExplicit = clean.match(/\bRef\.?\s*([A-Z0-9]{6,12})\b/i);
     if (refMatchStart) {
         ref = refMatchStart[1].toUpperCase();
+    } else if (refMatchExplicit) {
+        ref = refMatchExplicit[1].toUpperCase();
     } else if (refMatchEnd) {
         ref = refMatchEnd[1].toUpperCase();
     } else {
@@ -175,9 +181,39 @@ function parseMpesaSMS(text) {
     let type = 'expense';
     let counterparty = '';
     let subType = 'send';
+    let fromProvider = null;
+    let toProvider = null;
+
+    // Cash deposit into M-Pesa (agent/ATM deposit) — money moves Cash -> M-Pesa
+    const isCashDeposit = /cash\s+deposit/i.test(clean) ||
+        (/deposited/i.test(clean) && /m-?pesa/i.test(clean));
+
+    // Cash withdrawal from M-Pesa — money moves M-Pesa -> Cash
+    const isCashWithdrawal = /withdrawn/i.test(clean) ||
+        /withdraw\s+Ksh/i.test(clean) ||
+        /give\s+Ksh/i.test(clean);
 
     // Patterns
-    if (/received\s+Ksh?\.?\s*[\d,.]+\s+from/i.test(clean) || /received\s+from/i.test(clean)) {
+    if (isCashDeposit) {
+        type = 'transfer';
+        subType = 'deposit';
+        fromProvider = 'CASH';
+        toProvider = 'MPESA';
+        const match = clean.match(/deposited[^.]*?at\s+([^.]+?)\s+on\s+\d/i) ||
+                      clean.match(/at\s+([^.]+?)\s+on\s+\d/i);
+        counterparty = match ? match[1].trim() : 'M-Pesa Agent';
+    } else if (isCashWithdrawal) {
+        type = 'transfer';
+        subType = 'withdraw';
+        fromProvider = 'MPESA';
+        toProvider = 'CASH';
+        const match = clean.match(/from\s+([^.]+?)\s+on\s+\d/i) ||
+                      clean.match(/\bat\s+([^.]+?)\s+on\s+\d/i);
+        if (match) counterparty = match[1].trim();
+        // "M-PESA at ATM KENYATOWN" -> "ATM KENYATOWN"
+        counterparty = counterparty.replace(/^M-?PESA\s+(at\s+)?/i, '').trim();
+        if (!counterparty) counterparty = 'M-Pesa Agent';
+    } else if (/received\s+Ksh?\.?\s*[\d,.]+\s+from/i.test(clean) || /received\s+from/i.test(clean)) {
         type = 'income';
         subType = 'receive';
         const match = clean.match(/received\s+(?:Ksh?\.?\s*[\d,.]+\s+)?from\s+([^.]+?)\s+on\s+\d/i) ||
@@ -193,19 +229,10 @@ function parseMpesaSMS(text) {
         subType = 'send';
         const match = clean.match(/sent\s+to\s+([^.]+?)\s+on\s+\d/i);
         if (match) counterparty = match[1].trim();
-    } else if (/withdrawn\s+from/i.test(clean)) {
-        type = 'expense';
-        subType = 'withdraw';
-        const match = clean.match(/withdrawn\s+from\s+([^.]+?)\s+on\s+\d/i);
-        if (match) counterparty = match[1].trim();
     } else if (/airtime/i.test(clean) && /bought/i.test(clean)) {
         type = 'expense';
         subType = 'airtime';
         counterparty = 'Safaricom Airtime';
-    } else if (/give\s+Ksh/i.test(clean) || /withdraw/i.test(clean)) {
-        type = 'expense';
-        subType = 'withdraw';
-        counterparty = 'Agent / ATM';
     }
 
     // Clean up counterparty phone numbers/account numbers if any
@@ -215,11 +242,15 @@ function parseMpesaSMS(text) {
         counterparty = subType === 'paybill' ? 'Merchant' : (type === 'income' ? 'Unknown Sender' : 'Unknown Recipient');
     }
 
-    const category = detectCategory(counterparty, type);
+    const category = type === 'transfer' ? 'Transfer' : detectCategory(counterparty, type);
     const parsedDate = dateStr ? parseKenyanDateTime(dateStr, timeStr) : new Date();
 
     let description = '';
-    if (type === 'income') {
+    if (type === 'transfer' && subType === 'deposit') {
+        description = `Cash deposit to M-Pesa at ${counterparty}`;
+    } else if (type === 'transfer') {
+        description = `Cash withdrawal from M-Pesa at ${counterparty}`;
+    } else if (type === 'income') {
         description = `Received from ${counterparty}`;
     } else if (subType === 'paybill') {
         description = `Paid to ${counterparty}`;
@@ -244,7 +275,9 @@ function parseMpesaSMS(text) {
         date: dateStr,
         time: timeStr,
         timestamp: parsedDate,
-        provider: 'MPESA'
+        provider: 'MPESA',
+        fromProvider,
+        toProvider
     };
 }
 
@@ -258,7 +291,7 @@ function parseBatchMpesaSMS(text) {
     const rawChunks = text
         .split(/\n\s*\n+/)
         .flatMap(chunk => chunk.split(/(?<=\.)\s+(?=[A-Z0-9]{6,12}\s+Confirmed|Till\s+Number\s+\d+\s+Confirmed)/i));
-        
+            
     const results = [];
 
     for (const chunk of rawChunks) {
