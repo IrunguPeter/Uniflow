@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+require('./env');
 const sequelize = require('./services/db');
 const { runMigrations } = require('./services/migrations');
 

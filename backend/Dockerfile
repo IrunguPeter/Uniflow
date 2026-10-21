@@ -25,6 +25,7 @@ RUN apk add --no-cache sqlite-libs
 COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 COPY index.js ./
+COPY env.js ./
 COPY models ./models
 COPY routes ./routes
 COPY services ./services

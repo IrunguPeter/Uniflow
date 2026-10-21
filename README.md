@@ -1,6 +1,6 @@
 # UniFlow Finance
 
-An AI-driven financial survival engine for Kenyan university students. Tracks M-Pesa and bank transactions, manages budgets, and provides personalized financial coaching powered by Gemma 4.
+An AI-driven financial survival engine for Kenyan university students. Tracks M-Pesa and bank transactions, manages budgets, and provides personalized financial coaching powered by Groq.
 
 ## Project Structure
 
@@ -18,7 +18,6 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 │   └── src/services/      # financeApi.js — Axios API client
 │
 ├── docs/                  # bank-api-integration.md, transfers.md
-├── GEMMA_CLOUD_SETUP.md   # Instructions for connecting to Gemma 4 cloud
 └── WRITEUP.md             # Project writeup
 ```
 
@@ -28,7 +27,7 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 |-------|-----------|
 | Frontend | React 18, Tailwind CSS, Framer Motion, Recharts |
 | Backend | Node.js, Express.js, Sequelize ORM, SQLite |
-| AI | Groq (Llama 3.3 70B or other models) |
+| AI | Groq (OpenAI-compatible — Groq, OpenRouter or OpenAI) |
 
 ### Option A: Using Docker / Home Server (Recommended)
 ```bash
@@ -64,7 +63,7 @@ npm start            # starts on port 3000
 ```env
 AI_PROVIDER=groq
 GROQ_API_KEY=gsk_your_groq_api_key_here
-GEMMA_MODEL=llama-3.3-70b-versatile
+GEMMA_MODEL=openai/gpt-oss-120b
 FRONTEND_PORT=8080
 BACKEND_PORT=5050
 ```
@@ -74,7 +73,7 @@ BACKEND_PORT=5050
 ### Dashboard
 - Total balance with separate **M-Pesa** and **Bank** breakdowns
 - Weekly budget progress bar with recurring expense deductions
-- AI-powered financial tips from Gemma 4
+- AI-powered financial tips from your configured AI provider
 - Quick actions for adding transactions and managing recurring expenses
 
 ### Transaction Logging
@@ -143,8 +142,26 @@ BACKEND_PORT=5050
 | DELETE | `/api/finance/chat/history` | Clear chat history |
 | GET | `/api/finance/charts` | Aggregated data for charts |
 
-## Connecting to Gemma 4 Cloud
+## Connecting an AI Provider
 
-See [`GEMMA_CLOUD_SETUP.md`](GEMMA_CLOUD_SETUP.md) for instructions on switching from local Ollama to Google AI Studio, OpenRouter, Groq, or a self-hosted Gemma 4 endpoint.
+UniFlow talks to any OpenAI-compatible chat endpoint. Set the provider and key in `.env`:
+
+```env
+AI_PROVIDER=groq          # groq | openrouter | openai | google
+GROQ_API_KEY=gsk_...
+GEMMA_MODEL=openai/gpt-oss-120b
+```
+
+If the configured model is retired by the provider, the backend logs a warning and
+automatically falls back to the best chat model your key still has access to.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `API key not set` | `GROQ_API_KEY` (or `GEMMA_API_KEY`) missing — the backend reads `.env` from the repo root or from `backend/`. |
+| `HTTP 404 - model_not_found` | The configured model no longer exists. Update `GEMMA_MODEL`, or let the automatic fallback pick one. |
+| Chat replies with a canned apology | The provider call failed — check `docker compose logs backend` for the real error. |
+
 # Uniflow
 # Money-manager
