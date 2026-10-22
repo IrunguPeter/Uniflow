@@ -12,6 +12,10 @@ const ChatMessage = require('../models/ChatMessage');
 const BudgetPlan = require('../models/BudgetPlan');
 const { AccountService, getAccountLabel } = require('../services/accountService');
 const { TransferService, TransferError } = require('../services/transferService');
+const { TransactionService, TransactionServiceError } = require('../services/transactionService');
+const { categorizePending } = require('../services/categorizationService');
+const { TOOLS, requestTool, confirmAction, cancelAction } = require('../services/aiTools');
+const AiAction = require('../models/AiAction');
 
 const VALID_TYPES = ['income', 'expense', 'transfer'];
 const VALID_PROVIDERS = ['MPESA', 'NCBA', 'IM', 'CASH'];
@@ -159,9 +163,10 @@ router.post('/transactions', async (req, res) => {
 
 router.delete('/transactions/:id', async (req, res) => {
     const { id } = req.params;
+    const uid = req.query.userId || req.body?.userId || 'demo-user';
 
     try {
-        const deleted = await Transaction.destroy({ where: { id } });
+        const deleted = await Transaction.destroy({ where: { id, userId: uid } });
         if (!deleted) {
             return res.status(404).json({ error: 'Transaction not found' });
         }
@@ -171,6 +176,32 @@ router.delete('/transactions/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete transaction' });
     }
 });
+
+// ── Edit a transaction ─────────────────────────────────────────────
+// Registered for both PATCH and PUT so proxies that strip one verb still work.
+
+const updateTransactionHandler = async (req, res) => {
+    const { id } = req.params;
+    const uid = req.body?.userId || req.query.userId || 'demo-user';
+
+    try {
+        const { transaction, changes } = await TransactionService.update(uid, id, req.body, {
+            force: Boolean(req.body?.force),
+        });
+        res.json({ transaction, changes });
+    } catch (error) {
+        if (error instanceof TransactionServiceError) {
+            const status = error.code === 'NOT_FOUND' ? 404
+                : error.code === 'INSUFFICIENT_FUNDS' ? 409 : 400;
+            return res.status(status).json({ error: error.message, code: error.code, ...error.details });
+        }
+        console.error('Update transaction error:', error);
+        res.status(500).json({ error: 'Failed to update transaction' });
+    }
+};
+
+router.patch('/transactions/:id', updateTransactionHandler);
+router.put('/transactions/:id', updateTransactionHandler);
 
 // ── Accounts ───────────────────────────────────────────────────────
 
@@ -490,9 +521,10 @@ router.post('/pending-transactions/:id/categorize', async (req, res) => {
 
 router.post('/pending-transactions/:id/ignore', async (req, res) => {
     const { id } = req.params;
+    const uid = req.body?.userId || req.query.userId || 'demo-user';
 
     try {
-        const pending = await PendingTransaction.findByPk(id);
+        const pending = await PendingTransaction.findOne({ where: { id, userId: uid } });
         if (!pending) {
             return res.status(404).json({ error: 'Pending transaction not found' });
         }
@@ -502,6 +534,82 @@ router.post('/pending-transactions/:id/ignore', async (req, res) => {
     } catch (error) {
         console.error('Ignore error:', error);
         res.status(500).json({ error: 'Failed to ignore transaction' });
+    }
+});
+
+// ── Auto-categorize pending transactions ───────────────────────────
+// Works out a category for every pending transaction (keyword rules first,
+// AI for the ambiguous ones) and logs them onto the ledger.
+
+router.post('/pending-transactions/auto-categorize', async (req, res) => {
+    const { userId, limit } = req.body || {};
+    const uid = userId || 'demo-user';
+
+    try {
+        const result = await categorizePending(uid, { limit: limit || 25 });
+        res.json({
+            ...result,
+            message: result.categorized === 0
+                ? 'No pending transactions to categorize'
+                : `Categorized ${result.categorized} transaction${result.categorized === 1 ? '' : 's'}`,
+        });
+    } catch (error) {
+        console.error('Auto-categorize error:', error);
+        res.status(500).json({ error: 'Failed to auto-categorize transactions' });
+    }
+});
+
+// ── AI action audit trail ───────────────────────────────────────────
+
+router.get('/ai/actions', async (req, res) => {
+    const { userId, limit } = req.query;
+    const uid = userId || 'demo-user';
+
+    try {
+        const actions = await AiAction.findAll({
+            where: { userId: uid },
+            order: [['createdAt', 'DESC']],
+            limit: Math.min(Number(limit) || 50, 200),
+        });
+        res.json(actions);
+    } catch (error) {
+        console.error('Fetch AI actions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Run a destructive action the AI asked for, once the user has approved it
+router.post('/ai/actions/:id/confirm', async (req, res) => {
+    const { id } = req.params;
+    const uid = req.body?.userId || req.query.userId || 'demo-user';
+
+    try {
+        const { action, result } = await confirmAction(uid, id);
+        res.json({ action, result, message: result.summary });
+    } catch (error) {
+        if (error instanceof TransactionServiceError) {
+            const status = error.code === 'NOT_FOUND' ? 404 : 400;
+            return res.status(status).json({ error: error.message, code: error.code });
+        }
+        console.error('Confirm AI action error:', error);
+        res.status(500).json({ error: 'Failed to run the action' });
+    }
+});
+
+router.post('/ai/actions/:id/cancel', async (req, res) => {
+    const { id } = req.params;
+    const uid = req.body?.userId || req.query.userId || 'demo-user';
+
+    try {
+        const action = await cancelAction(uid, id);
+        res.json({ action, message: 'Action cancelled' });
+    } catch (error) {
+        if (error instanceof TransactionServiceError) {
+            const status = error.code === 'NOT_FOUND' ? 404 : 400;
+            return res.status(status).json({ error: error.message, code: error.code });
+        }
+        console.error('Cancel AI action error:', error);
+        res.status(500).json({ error: 'Failed to cancel the action' });
     }
 });
 
@@ -875,6 +983,7 @@ router.post('/chat', async (req, res) => {
             ...budgetData,
             ...balances,
             recentTransactions: recentTransactions.map(tx => ({
+                id: tx.id,
                 description: tx.description,
                 amount: tx.amount,
                 category: tx.category,
@@ -885,14 +994,34 @@ router.post('/chat', async (req, res) => {
             topCategories
         };
 
-        const reply = await AiFinancialAdvisor.chat(message.trim(), financialContext, chatHistory.map(m => ({
-            role: m.role,
-            content: m.content
-        })));
+        // The AI gets tools so it can actually change the ledger, not just
+        // talk about it. Destructive actions come back as pending actions
+        // that the user has to approve first.
+        const { reply, activity, pendingActions } = await AiFinancialAdvisor.chatWithTools(
+            message.trim(),
+            financialContext,
+            chatHistory.map(m => ({ role: m.role, content: m.content })),
+            {
+                tools: TOOLS,
+                requestTool: (name, args) => requestTool(name, args, uid),
+                userId: uid,
+            }
+        );
 
-        const assistantMsg = await ChatMessage.create({ userId: uid, role: 'assistant', content: reply });
+        await ChatMessage.create({
+            userId: uid,
+            role: 'assistant',
+            content: reply,
+            metadata: { activity, pendingActions },
+        });
 
-        res.json({ reply, userMessage: { role: 'user', content: message.trim() }, assistantMessage: { role: 'assistant', content: reply } });
+        res.json({
+            reply,
+            activity,
+            pendingActions,
+            userMessage: { role: 'user', content: message.trim() },
+            assistantMessage: { role: 'assistant', content: reply }
+        });
     } catch (error) {
         console.error('Chat error:', error);
         res.status(500).json({ error: 'Failed to get AI response' });

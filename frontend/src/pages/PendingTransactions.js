@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { getPendingTransactions, categorizeTransaction, ignoreTransaction } from '../services/financeApi';
+import { getPendingTransactions, categorizeTransaction, ignoreTransaction, autoCategorizePending } from '../services/financeApi';
 
 const stagger = { animate: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = {
@@ -129,6 +129,8 @@ function PendingCard({ tx, onCategorize, onIgnore }) {
 export default function PendingTransactions() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [autoCategorizing, setAutoCategorizing] = useState(false);
+  const [autoMessage, setAutoMessage] = useState('');
   const navigate = useNavigate();
 
   const fetchPending = () => {
@@ -148,6 +150,30 @@ export default function PendingTransactions() {
   const handleIgnore = async (id) => {
     await ignoreTransaction(id);
     setPending((prev) => prev.filter((tx) => tx.id !== id));
+  };
+
+  /**
+   * Let the rules (and the AI for the tricky ones) work out every category
+   * and log them all onto the ledger in one go.
+   */
+  const handleAutoCategorize = async () => {
+    setAutoCategorizing(true);
+    setAutoMessage('');
+    try {
+      const result = await autoCategorizePending();
+      await fetchPending();
+      const how = result.aiUsed ? 'rules + AI' : 'rules';
+      setAutoMessage(
+        result.categorized === 0
+          ? 'Nothing could be categorized automatically.'
+          : `Logged ${result.categorized} transaction${result.categorized === 1 ? '' : 's'} using ${how}.`
+      );
+    } catch (err) {
+      console.error('Auto-categorize failed:', err);
+      setAutoMessage(err.response?.data?.error || 'Could not auto-categorize. Try doing them one by one.');
+    } finally {
+      setAutoCategorizing(false);
+    }
   };
 
   if (loading) {
@@ -189,12 +215,31 @@ export default function PendingTransactions() {
       ) : (
         <>
           <motion.div variants={fadeUp}
-            className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+            className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3">
             <span className="text-lg">⏳</span>
-            <p className="text-xs font-semibold text-amber-800">
+            <p className="text-xs font-semibold text-amber-800 flex-1 min-w-[160px]">
               {pending.length} transaction{pending.length !== 1 ? 's' : ''} need{pending.length === 1 ? 's' : ''} categorization
             </p>
+            <button onClick={handleAutoCategorize} disabled={autoCategorizing}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-500 text-white text-xs font-bold transition active:scale-95 hover:bg-primary-600 disabled:opacity-40">
+              {autoCategorizing ? (
+                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <span>✨</span>
+              )}
+              {autoCategorizing ? 'Working...' : 'Auto-categorize all'}
+            </button>
           </motion.div>
+
+          {autoMessage && (
+            <motion.div variants={fadeUp} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl bg-primary-50 border border-primary-200 px-4 py-3">
+              <p className="text-xs font-semibold text-primary-800">{autoMessage}</p>
+            </motion.div>
+          )}
 
           <AnimatePresence>
             {pending.map((tx) => (

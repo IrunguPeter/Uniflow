@@ -10,6 +10,7 @@ const ADDED_COLUMNS = [
     { table: 'Transactions', column: 'toProvider' },
     { table: 'PendingTransactions', column: 'fromProvider' },
     { table: 'PendingTransactions', column: 'toProvider' },
+    { table: 'ChatMessages', column: 'metadata' },
 ];
 
 async function runMigrations(sequelize) {

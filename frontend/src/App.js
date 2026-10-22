@@ -12,6 +12,7 @@ import Charts from './pages/Charts';
 import Chat from './pages/Chat';
 import PendingTransactions from './pages/PendingTransactions';
 import Transfers from './pages/Transfers';
+import AiActivity from './pages/AiActivity';
 
 const tabs = [
   { to: '/', label: 'Home', icon: (active) => (
@@ -88,6 +89,12 @@ const sidebarTabs = [
       <path d="M3 11V9a4 4 0 014-4h14" />
       <polyline points="7 23 3 19 7 15" />
       <path d="M21 13v2a4 4 0 01-4 4H3" />
+    </svg>
+  )},
+  { to: '/ai-activity', label: 'AI Activity', icon: (active) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#10B981' : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z" />
+      <path d="M18 14h.01M6 14h.01M12 17v4M8 21h8" />
     </svg>
   )},
 ];
@@ -214,6 +221,7 @@ function AppShell() {
                 <Route path="/charts" element={<Charts />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/transfer" element={<Transfers />} />
+                <Route path="/ai-activity" element={<AiActivity />} />
               </Routes>
             </motion.div>
           </AnimatePresence>

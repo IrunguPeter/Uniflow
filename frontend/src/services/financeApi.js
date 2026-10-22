@@ -34,8 +34,13 @@ export async function addTransaction(tx, userId = 'demo-user') {
   return data;
 }
 
-export async function deleteTransaction(id) {
-  const { data } = await api.delete(`/transactions/${id}`);
+export async function updateTransaction(id, changes, userId = 'demo-user') {
+  const { data } = await api.patch(`/transactions/${id}`, { ...changes, userId });
+  return data;
+}
+
+export async function deleteTransaction(id, userId = 'demo-user') {
+  const { data } = await api.delete(`/transactions/${id}`, { params: { userId } });
   return data;
 }
 
@@ -138,5 +143,27 @@ export async function categorizeTransaction(id, category, description, asTransfe
 
 export async function ignoreTransaction(id) {
   const { data } = await api.post(`/pending-transactions/${id}/ignore`);
+  return data;
+}
+
+export async function autoCategorizePending(userId = 'demo-user') {
+  const { data } = await api.post('/pending-transactions/auto-categorize', { userId });
+  return data;
+}
+
+// ── AI agent ───────────────────────────────────────────────────────
+
+export async function getAiActions(userId = 'demo-user') {
+  const { data } = await api.get('/ai/actions', { params: { userId } });
+  return data;
+}
+
+export async function confirmAiAction(id, userId = 'demo-user') {
+  const { data } = await api.post(`/ai/actions/${id}/confirm`, { userId });
+  return data;
+}
+
+export async function cancelAiAction(id, userId = 'demo-user') {
+  const { data } = await api.post(`/ai/actions/${id}/cancel`, { userId });
   return data;
 }

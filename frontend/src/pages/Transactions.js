@@ -1,21 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { getTransactions, deleteTransaction } from '../services/financeApi';
+import { getTransactions, deleteTransaction, updateTransaction } from '../services/financeApi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
+// The categories the app actually uses — they come from the keyword rules in
+// mpesaParser.js, so the icons here line up with what the parser produces.
+const CATEGORIES = [
+  'Food & Dining', 'Groceries & Shopping', 'Transport', 'Utilities & Bills',
+  'Airtime & Data', 'Rent & Housing', 'Education & Campus', 'Health & Pharmacy',
+  'Entertainment & Leisure', 'Allowance & Gifts', 'Salary', 'HELB', 'Remittance',
+  'Savings', 'Transfer', 'Other',
+];
+
 const categoryConfig = {
-  Food: { icon: '🍽️', color: 'bg-orange-100' },
+  'Food & Dining': { icon: '🍽️', color: 'bg-orange-100' },
+  'Groceries & Shopping': { icon: '🛍️', color: 'bg-pink-100' },
   Transport: { icon: '🚌', color: 'bg-blue-100' },
-  Entertainment: { icon: '🎬', color: 'bg-purple-100' },
-  Shopping: { icon: '🛍️', color: 'bg-pink-100' },
-  Bills: { icon: '📄', color: 'bg-yellow-100' },
-  Health: { icon: '💊', color: 'bg-red-100' },
-  Education: { icon: '📚', color: 'bg-indigo-100' },
-  Allowance: { icon: '💰', color: 'bg-green-100' },
+  'Utilities & Bills': { icon: '📄', color: 'bg-yellow-100' },
+  'Airtime & Data': { icon: '📶', color: 'bg-cyan-100' },
+  'Rent & Housing': { icon: '🏠', color: 'bg-indigo-100' },
+  'Education & Campus': { icon: '📚', color: 'bg-indigo-100' },
+  'Health & Pharmacy': { icon: '💊', color: 'bg-red-100' },
+  'Entertainment & Leisure': { icon: '🎬', color: 'bg-purple-100' },
+  'Allowance & Gifts': { icon: '💰', color: 'bg-green-100' },
   Salary: { icon: '💼', color: 'bg-blue-100' },
+  HELB: { icon: '🎓', color: 'bg-emerald-100' },
+  Remittance: { icon: '🌍', color: 'bg-teal-100' },
   Savings: { icon: '🐷', color: 'bg-pink-100' },
   Transfer: { icon: '🔁', color: 'bg-emerald-100' },
   Other: { icon: '📌', color: 'bg-gray-100' },
+  Uncategorized: { icon: '📌', color: 'bg-gray-100' },
 };
 
 const providerConfig = {
@@ -24,6 +38,13 @@ const providerConfig = {
   IM: { bg: 'bg-violet-50', text: 'text-violet-600', dot: 'bg-violet-400' },
   CASH: { bg: 'bg-gray-50', text: 'text-gray-500', dot: 'bg-gray-400' },
 };
+
+const PROVIDERS = [
+  { value: 'MPESA', label: 'M-Pesa' },
+  { value: 'NCBA', label: 'NCBA' },
+  { value: 'IM', label: 'I&M' },
+  { value: 'CASH', label: 'Cash' },
+];
 
 const providerLabel = (provider) => {
   if (provider === 'IM') return 'I&M';
@@ -59,12 +80,174 @@ function groupByDate(txns) {
 const stagger = { animate: { transition: { staggerChildren: 0.04 } } };
 const fadeUp = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
+/** Edit a logged transaction — amount, description, category and account. */
+function EditTransactionModal({ transaction, onClose, onSaved }) {
+  const [amount, setAmount] = useState(String(transaction.amount));
+  const [description, setDescription] = useState(transaction.description || '');
+  const [category, setCategory] = useState(transaction.category || 'Other');
+  const [provider, setProvider] = useState(transaction.provider || 'CASH');
+  const [toProvider, setToProvider] = useState(transaction.toProvider || '');
+  const [type, setType] = useState(transaction.type || 'expense');
+  const [error, setError] = useState('');
+  const [shortfall, setShortfall] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const isTransfer = type === 'transfer';
+
+  const save = async (force = false) => {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) {
+      setError('Enter a valid amount');
+      return;
+    }
+    if (!description.trim()) {
+      setError('Description is required');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      const changes = {
+        amount: value,
+        description: description.trim(),
+        category: isTransfer ? 'Transfer' : category,
+        type,
+        provider,
+        toProvider: isTransfer ? toProvider : null,
+        force,
+      };
+      await updateTransaction(transaction.id, changes);
+      onSaved();
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.code === 'INSUFFICIENT_FUNDS') {
+        setShortfall(data);
+      } else {
+        setError(data?.error || 'Could not save the change');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-6"
+      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+      <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+        className="bg-white rounded-t-3xl sm:rounded-3xl p-5 w-full sm:max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-bold text-dark-400 uppercase tracking-widest">Edit transaction</p>
+            <h3 className="text-lg font-bold text-secondary mt-0.5">{providerLabel(transaction.provider)} · KES {Number(transaction.amount).toLocaleString()}</h3>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition active:scale-95">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold text-dark-500 uppercase tracking-wider mb-1.5">Amount (KES)</label>
+            <input type="number" value={amount} onChange={(e) => { setAmount(e.target.value); setShortfall(null); }}
+              className="input-field" />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-dark-500 uppercase tracking-wider mb-1.5">Description</label>
+            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+              className="input-field" />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-dark-500 uppercase tracking-wider mb-1.5">Type</label>
+            <div className="grid grid-cols-3 gap-2">
+              {['expense', 'income', 'transfer'].map((t) => (
+                <button key={t} onClick={() => setType(t)}
+                  className={`py-2 rounded-xl text-xs font-bold capitalize border-2 transition ${
+                    type === t
+                      ? 'border-primary bg-primary-50 text-primary-700'
+                      : 'border-dark-100 text-dark-500 hover:border-dark-200'
+                  }`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!isTransfer && (
+            <div>
+              <label className="block text-[11px] font-bold text-dark-500 uppercase tracking-wider mb-1.5">Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="input-field">
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-dark-500 uppercase tracking-wider mb-1.5">
+                {isTransfer ? 'From' : 'Account'}
+              </label>
+              <select value={provider} onChange={(e) => setProvider(e.target.value)} className="input-field">
+                {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+            {isTransfer && (
+              <div>
+                <label className="block text-[11px] font-bold text-dark-500 uppercase tracking-wider mb-1.5">To</label>
+                <select value={toProvider} onChange={(e) => setToProvider(e.target.value)} className="input-field">
+                  <option value="">Choose…</option>
+                  {PROVIDERS.filter((p) => p.value !== provider).map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>
+          )}
+
+          {shortfall && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+              <p className="text-xs font-semibold text-amber-800">
+                {providerLabel(provider)} only has KES {Number(shortfall.available).toLocaleString()} tracked.
+              </p>
+              <button onClick={() => save(true)}
+                className="mt-2 text-[11px] font-bold text-amber-800 underline">
+                Save anyway
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose}
+            className="flex-1 py-3 rounded-2xl bg-gray-100 text-secondary font-bold text-sm transition active:scale-95 hover:bg-gray-200">
+            Cancel
+          </button>
+          <button onClick={() => save(false)} disabled={saving || (isTransfer && !toProvider)}
+            className="flex-1 py-3 rounded-2xl bg-primary-500 text-white font-bold text-sm transition active:scale-95 hover:bg-primary-600 disabled:opacity-40">
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function Transactions() {
   const [txns, setTxns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -84,6 +267,9 @@ export default function Transactions() {
       setDeleting(false);
     }
   };
+
+  /** Re-read the ledger after the AI (or an edit) touched it. */
+  const refresh = () => getTransactions().then(setTxns).catch(console.error);
 
   if (loading) return (
     <div className="space-y-4">
@@ -197,7 +383,16 @@ export default function Transactions() {
                             {new Date(tx.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
+                        <button onClick={() => setEditTarget(tx)}
+                          title="Edit transaction"
+                          className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600 hover:bg-primary-100 transition-all active:scale-90 flex-shrink-0">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                            <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
                         <button onClick={() => setDeleteTarget(tx)}
+                          title="Delete transaction"
                           className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 hover:text-red-500 transition-all active:scale-90 flex-shrink-0">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                             <polyline points="3 6 5 6 21 6" />
@@ -213,6 +408,18 @@ export default function Transactions() {
           ))}
         </motion.div>
       )}
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editTarget && (
+          <EditTransactionModal
+            key="edit-modal"
+            transaction={editTarget}
+            onClose={() => setEditTarget(null)}
+            onSaved={() => { setEditTarget(null); refresh(); }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>

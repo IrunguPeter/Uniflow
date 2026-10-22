@@ -10,6 +10,7 @@ require('./models/RecurringExpense');
 require('./models/ChatMessage');
 require('./models/BudgetPlan');
 require('./models/PendingTransaction');
+require('./models/AiAction');
 
 const app = express();
 const PORT = process.env.PORT || 5070;

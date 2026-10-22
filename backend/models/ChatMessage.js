@@ -13,6 +13,11 @@ const ChatMessage = sequelize.define('ChatMessage', {
     content: {
         type: DataTypes.TEXT,
         allowNull: false
+    },
+    // Extra info about the turn — which tools the AI ran, what it changed
+    metadata: {
+        type: DataTypes.JSON,
+        allowNull: true
     }
 }, { timestamps: true });
 

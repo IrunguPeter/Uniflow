@@ -6,18 +6,22 @@ An AI-driven financial survival engine for Kenyan university students. Tracks M-
 
 ```
 ├── backend/               # Node.js/Express API
-│   ├── models/            # Sequelize models (User, Transaction, RecurringExpense, ChatMessage)
+│   ├── models/            # Sequelize models (User, Transaction, RecurringExpense,
+│   │                      #   ChatMessage, PendingTransaction, AiAction)
 │   ├── routes/            # financeRoutes.js — all API endpoints
-│   ├── services/          # budgetService, accountService, transferService, aiService,
-│   │                      # helbService, migrations, db
+│   ├── services/          # budgetService, accountService, transferService,
+│   │                      #   transactionService, categorizationService,
+│   │                      #   aiService, aiTools, helbService, migrations, db
+│   ├── tests/             # aiTools.test.js — tool + confirmation tests
 │   └── utils/             # mpesaParser.js — regex-based SMS parser
 │
 ├── frontend/              # React.js mobile-first web app
 │   ├── src/pages/         # Dashboard, Charts, Chat, AddTransaction, Transactions,
-│   │                      # Transfers, HelbPlanner, RecurringExpenses, ParseSms
+│   │                      # Transfers, AiActivity, PendingTransactions,
+│   │                      # HelbPlanner, RecurringExpenses, ParseSms
 │   └── src/services/      # financeApi.js — Axios API client
 │
-├── docs/                  # bank-api-integration.md, transfers.md
+├── docs/                  # bank-api-integration.md, transfers.md, ai-agent.md
 └── WRITEUP.md             # Project writeup
 ```
 
@@ -109,6 +113,17 @@ BACKEND_PORT=5050
 - Chat history persisted in the database
 - Suggestion chips for common questions
 
+### AI Agent (acts on your ledger)
+- The AI can now **edit** transactions, not just talk about them
+- Tools: find, update, create, categorize, transfer and delete transactions
+- "Change my KPLC transaction to Food & Dining" - it finds the row and fixes it
+- **Auto-categorize all** on the Pending screen: keyword rules first, AI for the ambiguous ones
+- Destructive actions (delete) wait for your confirmation
+- Edits that would overdraw an account are rejected with the exact shortfall
+- Every action is written to an audit trail - see the **AI Activity** page
+- Tool calling works on Groq, OpenRouter, OpenAI and Google Gemini
+- See [`docs/ai-agent.md`](docs/ai-agent.md)
+
 ### Charts & Analytics
 - Expense breakdown pie chart by category
 - Income sources pie chart
@@ -126,6 +141,8 @@ BACKEND_PORT=5050
 | GET | `/api/finance/budget-insight` | Weekly budget + AI advice + separate balances |
 | GET | `/api/finance/transactions` | Transaction history (up to 50) |
 | POST | `/api/finance/transactions` | Add transaction (with validation) |
+| PATCH | `/api/finance/transactions/:id` | Edit a transaction (PUT also works) |
+| DELETE | `/api/finance/transactions/:id` | Remove a transaction |
 | GET | `/api/finance/accounts` | Per-account balances (M-Pesa, NCBA, I&M, Cash) |
 | GET | `/api/finance/transfers` | Transfer history between own accounts |
 | POST | `/api/finance/transfers` | Transfer between two of your accounts |
@@ -133,6 +150,10 @@ BACKEND_PORT=5050
 | POST | `/api/finance/parse-batch-sms` | Parse many M-Pesa SMS at once |
 | GET | `/api/finance/pending-transactions` | Transactions awaiting categorization |
 | POST | `/api/finance/pending-transactions/:id/categorize` | Categorize (or record as transfer) |
+| POST | `/api/finance/pending-transactions/auto-categorize` | Categorize and log every pending SMS |
+| GET | `/api/finance/ai/actions` | Audit trail of everything the AI did |
+| POST | `/api/finance/ai/actions/:id/confirm` | Approve a destructive AI action |
+| POST | `/api/finance/ai/actions/:id/cancel` | Discard a destructive AI action |
 | POST | `/api/finance/helb-calculate` | HELB loan weekly allocation calculator |
 | GET | `/api/finance/recurring-expenses` | List recurring expenses |
 | POST | `/api/finance/recurring-expenses` | Add recurring expense |

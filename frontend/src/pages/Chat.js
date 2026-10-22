@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getChatHistory, sendChatMessage, clearChatHistory } from '../services/financeApi';
+import { getChatHistory, sendChatMessage, clearChatHistory, confirmAiAction, cancelAiAction } from '../services/financeApi';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SUGGESTIONS = [
@@ -7,20 +8,117 @@ const SUGGESTIONS = [
   { text: "How much did I spend on food?", icon: '🍽️' },
   { text: "What's my biggest expense?", icon: '📊' },
   { text: "Give me a budget tip", icon: '💡' },
-  { text: "How's my weekly spending?", icon: '📈' },
-  { text: "Should I save more?", icon: '🐷' },
+  { text: "Categorize my pending transactions", icon: '🗂️' },
+  { text: "Change my KPLC transaction to Food & Dining", icon: '✏️' },
 ];
+
+const TOOL_ICONS = {
+  list_transactions: '🔍',
+  list_pending_transactions: '📋',
+  update_transaction: '✏️',
+  categorize_transaction: '🏷️',
+  categorize_pending_transaction: '🏷️',
+  categorize_pending_transactions: '🗂️',
+  create_transaction: '➕',
+  record_transfer: '🔁',
+  delete_transaction: '🗑️',
+};
+
+/** What the AI did, shown as little chips under its reply. */
+function ActivityChips({ activity }) {
+  if (!activity || activity.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {activity.map((item, i) => (
+        <span key={i}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold ${
+            item.ok
+              ? item.requiresConfirmation
+                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                : 'bg-primary-50 text-primary-700 border border-primary-200'
+              : 'bg-red-50 text-red-600 border border-red-200'
+          }`}>
+          <span>{TOOL_ICONS[item.tool] || '⚙️'}</span>
+          <span className="max-w-[240px] truncate">{item.summary}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** A destructive action waiting for the student to say yes. */
+function ConfirmationCard({ action, onConfirm, onCancel, busy }) {
+  const [state, setState] = useState('pending');
+
+  const confirm = async () => {
+    setState('busy');
+    const ok = await onConfirm(action.id);
+    setState(ok ? 'confirmed' : 'error');
+  };
+
+  const cancel = async () => {
+    setState('busy');
+    await onCancel(action.id);
+    setState('cancelled');
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="mt-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
+      <div className="flex items-start gap-2.5">
+        <span className="text-base leading-none mt-0.5">⚠️</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Needs your approval</p>
+          <p className="text-[13px] font-semibold text-amber-900 mt-0.5 leading-snug">{action.summary}</p>
+
+          {state === 'pending' && (
+            <div className="flex gap-2 mt-3">
+              <button onClick={confirm} disabled={busy}
+                className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold transition active:scale-95 hover:bg-amber-600 disabled:opacity-40">
+                {busy ? 'Working...' : 'Yes, do it'}
+              </button>
+              <button onClick={cancel} disabled={busy}
+                className="flex-1 py-2 rounded-xl bg-white text-amber-700 text-xs font-bold border border-amber-200 transition active:scale-95 hover:bg-amber-100 disabled:opacity-40">
+                No, cancel
+              </button>
+            </div>
+          )}
+
+          {state === 'confirmed' && (
+            <p className="text-xs font-bold text-primary-700 mt-2.5">✓ Done — your ledger is updated.</p>
+          )}
+          {state === 'cancelled' && (
+            <p className="text-xs font-bold text-dark-500 mt-2.5">Cancelled — nothing was changed.</p>
+          )}
+          {state === 'error' && (
+            <p className="text-xs font-bold text-red-600 mt-2.5">That did not work. Nothing was changed.</p>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [busyAction, setBusyAction] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    getChatHistory().then(setMessages).catch(console.error);
+    getChatHistory()
+      .then((rows) => setMessages(rows.map((m) => ({
+        role: m.role,
+        content: m.content,
+        activity: m.metadata?.activity || [],
+        pendingActions: (m.metadata?.pendingActions || []).map((a) => ({ ...a, resolved: false })),
+      }))))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -38,7 +136,12 @@ export default function Chat() {
 
     try {
       const data = await sendChatMessage(msg);
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+      setMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: data.reply,
+        activity: data.activity || [],
+        pendingActions: (data.pendingActions || []).map((a) => ({ ...a, resolved: false })),
+      }]);
     } catch {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
     } finally {
@@ -52,6 +155,38 @@ export default function Chat() {
     await clearChatHistory();
     setMessages([]);
     setClearing(false);
+  };
+
+  const handleConfirm = async (actionId) => {
+    setBusyAction(actionId);
+    try {
+      await confirmAiAction(actionId);
+      setMessages((prev) => prev.map((m) => ({
+        ...m,
+        pendingActions: (m.pendingActions || []).map((a) => (a.id === actionId ? { ...a, resolved: true } : a)),
+      })));
+      return true;
+    } catch (err) {
+      console.error('Confirm failed:', err);
+      return false;
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleCancel = async (actionId) => {
+    setBusyAction(actionId);
+    try {
+      await cancelAiAction(actionId);
+      setMessages((prev) => prev.map((m) => ({
+        ...m,
+        pendingActions: (m.pendingActions || []).map((a) => (a.id === actionId ? { ...a, resolved: true } : a)),
+      })));
+    } catch (err) {
+      console.error('Cancel failed:', err);
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   return (
@@ -70,15 +205,21 @@ export default function Chat() {
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-dark-900">AI Advisor</h1>
-            <p className="text-[11px] text-dark-400 font-semibold">Powered by Llama 3.3 70B</p>
+            <p className="text-[11px] text-dark-400 font-semibold">Can read, edit and organize your ledger</p>
           </div>
         </div>
-        {messages.length > 0 && (
-          <button onClick={handleClear} disabled={clearing}
-            className="text-xs font-semibold text-dark-400 hover:text-red-500 transition-all px-4 py-2 rounded-xl hover:bg-red-50 active:scale-95">
-            {clearing ? 'Clearing...' : 'Clear Chat'}
+        <div className="flex items-center gap-1">
+          <button onClick={() => navigate('/ai-activity')}
+            className="text-xs font-semibold text-dark-400 hover:text-primary-600 transition-all px-3 py-2 rounded-xl hover:bg-primary-50 active:scale-95">
+            Activity
           </button>
-        )}
+          {messages.length > 0 && (
+            <button onClick={handleClear} disabled={clearing}
+              className="text-xs font-semibold text-dark-400 hover:text-red-500 transition-all px-3 py-2 rounded-xl hover:bg-red-50 active:scale-95">
+              {clearing ? 'Clearing...' : 'Clear'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -98,12 +239,13 @@ export default function Chat() {
               </div>
             </div>
             <h2 className="text-xl font-bold text-dark-800 mb-2">Ask me anything</h2>
-            <p className="text-sm text-dark-400 mb-8 max-w-[280px] leading-relaxed">
-              I know your balances, spending patterns, and budget status. Let's talk money!
+            <p className="text-sm text-dark-400 mb-8 max-w-[320px] leading-relaxed">
+              I know your balances and spending — and I can act on them. Ask me to fix a category,
+              tidy up pending SMS, or log a transfer.
             </p>
             <div className="w-full space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
               {SUGGESTIONS.map((s, i) => (
-                <motion.button key={s.text} 
+                <motion.button key={s.text}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
@@ -130,13 +272,30 @@ export default function Chat() {
                   </svg>
                 </div>
               )}
-              <div className={`max-w-[80%] px-5 py-3.5 text-[13px] leading-relaxed font-medium ${
-                m.role === 'user'
-                  ? 'bg-primary-500 text-white rounded-2xl rounded-br-lg shadow-md'
-                  : 'bg-white text-dark-700 rounded-2xl rounded-bl-lg border border-dark-100'
-              }`}
-                style={m.role === 'assistant' ? { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' } : {}}>
-                {m.content}
+              <div className="max-w-[80%]">
+                <div className={`px-5 py-3.5 text-[13px] leading-relaxed font-medium ${
+                  m.role === 'user'
+                    ? 'bg-primary-500 text-white rounded-2xl rounded-br-lg shadow-md'
+                    : 'bg-white text-dark-700 rounded-2xl rounded-bl-lg border border-dark-100'
+                }`}
+                  style={m.role === 'assistant' ? { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' } : {}}>
+                  {m.content}
+                </div>
+
+                {m.role === 'assistant' && (
+                  <>
+                    <ActivityChips activity={m.activity} />
+                    {(m.pendingActions || []).filter((a) => !a.resolved).map((action) => (
+                      <ConfirmationCard
+                        key={action.id}
+                        action={action}
+                        busy={busyAction === action.id}
+                        onConfirm={handleConfirm}
+                        onCancel={handleCancel}
+                      />
+                    ))}
+                  </>
+                )}
               </div>
             </motion.div>
           ))}
@@ -166,7 +325,7 @@ export default function Chat() {
         className="flex items-end gap-3 p-3 bg-white rounded-3xl border border-dark-100"
         style={{ boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.04)' }}>
         <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your money..."
+          placeholder="Ask, or tell me what to change..."
           className="flex-1 bg-transparent text-sm font-medium text-dark-800 placeholder-dark-400 focus:outline-none px-2 py-2" />
         <button type="submit" disabled={sending || !input.trim()}
           className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center transition-all duration-200 flex-shrink-0 disabled:opacity-30 active:scale-90 hover:bg-primary-600"
