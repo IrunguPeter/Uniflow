@@ -82,7 +82,7 @@ BACKEND_PORT=5050
 
 ### Transaction Logging
 - Expense and income toggle with category selection
-- Account picker (M-Pesa, NCBA, I&M, Cash)
+- Account picker (M-Pesa, Equity Bank, Cash)
 - Full transaction history with category icons and color coding
 
 ### Transfers (bank ⇄ M-Pesa ⇄ cash)
@@ -91,7 +91,7 @@ BACKEND_PORT=5050
 - Transfers move balances but are **never counted as spending** — your weekly
   budget and spending-leak analysis stay honest
 - Insufficient-balance guard with an explicit "record anyway" override
-- Transfers show up in the Ledger with a `M-Pesa → NCBA` route, and are
+- Transfers show up in the Ledger with a `M-Pesa → Equity Bank` route, and are
   matched by the account filters
 - M-Pesa SMS cash withdrawals and agent deposits are detected automatically and
   can be recorded as **M-Pesa ⇄ Cash** transfers
@@ -143,7 +143,7 @@ BACKEND_PORT=5050
 | POST | `/api/finance/transactions` | Add transaction (with validation) |
 | PATCH | `/api/finance/transactions/:id` | Edit a transaction (PUT also works) |
 | DELETE | `/api/finance/transactions/:id` | Remove a transaction |
-| GET | `/api/finance/accounts` | Per-account balances (M-Pesa, NCBA, I&M, Cash) |
+| GET | `/api/finance/accounts` | Per-account balances (M-Pesa, Equity Bank, Cash) |
 | GET | `/api/finance/transfers` | Transfer history between own accounts |
 | POST | `/api/finance/transfers` | Transfer between two of your accounts |
 | POST | `/api/finance/parse-sms` | Parse M-Pesa SMS and log transaction |

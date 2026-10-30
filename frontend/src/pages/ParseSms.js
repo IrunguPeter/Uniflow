@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { parseSms, parseBatchSms } from '../services/financeApi';
+import { parseSms, parseBatchSms, parseStatementFile } from '../services/financeApi';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SAMPLE_SINGLE_SMS = `Till Number 462987 Confirmed. KSh1,200.00 sent to GEORGE OTIENO on 15/01/26 at 2:30 PM. M-Pesa transaction cost KSh0.00. New M-Pesa balance KSh4,500.00. Transaction code, QKH7B6GKZ4.`;
@@ -12,12 +12,14 @@ ABC123XYZ Confirmed. Ksh350.00 paid to KPLC PREPAID on 17/7/26 at 11:00 AM. New 
 XYZ999 Confirmed. Ksh2,500.00 received from MOM on 18/7/26 at 10:15 AM. New M-PESA balance is Ksh7,500.00.`;
 
 export default function ParseSms() {
-  const [tab, setTab] = useState('single'); // 'single' | 'batch'
+  const [tab, setTab] = useState('single'); // 'single' | 'batch' | 'statement'
   const [sms, setSms] = useState('');
   const [batchText, setBatchText] = useState('');
+  const [statementFile, setStatementFile] = useState(null);
   const [autoConfirm, setAutoConfirm] = useState(true);
   const [result, setResult] = useState(null);
   const [batchResult, setBatchResult] = useState(null);
+  const [statementResult, setStatementResult] = useState(null);
   const [error, setError] = useState('');
   const [parsing, setParsing] = useState(false);
   const navigate = useNavigate();
@@ -52,6 +54,40 @@ export default function ParseSms() {
     }
   };
 
+  const handleParseStatement = async (e) => {
+    e.preventDefault();
+    setError('');
+    setStatementResult(null);
+    if (!statementFile) return setError('Select a PDF or CSV statement file first');
+    setParsing(true);
+    try {
+      const data = await parseStatementFile(statementFile, autoConfirm);
+      setStatementResult(data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to process statement');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const ext = file.name.toLowerCase();
+      if (!ext.endsWith('.pdf') && !ext.endsWith('.csv')) {
+        return setError('Only PDF or CSV files are supported');
+      }
+      setStatementFile(file);
+      setError('');
+    }
+  };
+
+  const tabs = [
+    { key: 'single', label: 'Single SMS' },
+    { key: 'batch', label: 'Batch SMS' },
+    { key: 'statement', label: 'Statement File' },
+  ];
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
       <div className="flex items-center gap-3 pt-1">
@@ -61,32 +97,28 @@ export default function ParseSms() {
           </svg>
         </button>
         <div>
-          <h1 className="text-xl font-extrabold text-secondary">M-Pesa SMS Importer</h1>
-          <p className="text-xs text-muted">Auto-categorizes food, utilities, transport & allowances</p>
+          <h1 className="text-xl font-extrabold text-secondary">M-Pesa Importer</h1>
+          <p className="text-xs text-muted">SMS, batch messages, or statement files</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex bg-gray-100 p-1 rounded-2xl">
-        <button
-          onClick={() => { setTab('single'); setError(''); }}
-          className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-            tab === 'single' ? 'bg-white text-secondary shadow-sm' : 'text-gray-500 hover:text-secondary'
-          }`}>
-          Single SMS
-        </button>
-        <button
-          onClick={() => { setTab('batch'); setError(''); }}
-          className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-            tab === 'batch' ? 'bg-white text-secondary shadow-sm' : 'text-gray-500 hover:text-secondary'
-          }`}>
-          Batch Import (Multiple SMS)
-        </button>
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => { setTab(t.key); setError(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+              tab === t.key ? 'bg-white text-secondary shadow-sm' : 'text-gray-500 hover:text-secondary'
+            }`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {tab === 'single' ? (
+      {/* Single SMS */}
+      {tab === 'single' && (
         <>
-          {/* Phone mockup */}
           <div className="relative">
             <div className="card !p-0 overflow-hidden border border-gray-200/80">
               <div className="bg-gradient-to-r from-green-600 to-green-500 px-4 py-3 flex items-center justify-between">
@@ -125,9 +157,11 @@ export default function ParseSms() {
             </button>
           </div>
         </>
-      ) : (
+      )}
+
+      {/* Batch SMS */}
+      {tab === 'batch' && (
         <>
-          {/* Batch Mode */}
           <div className="card !p-0 overflow-hidden border border-gray-200/80">
             <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -148,7 +182,7 @@ export default function ParseSms() {
                 value={batchText}
                 onChange={(e) => setBatchText(e.target.value)}
                 rows={6}
-                placeholder="Paste several M-Pesa SMS messages here. Separate them with newlines or copy-paste directly from your phone..."
+                placeholder="Paste several M-Pesa SMS messages here. Separate them with newlines..."
                 className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-sm text-secondary placeholder-gray-400
                   focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none font-medium leading-relaxed border border-gray-100"
               />
@@ -175,6 +209,63 @@ export default function ParseSms() {
         </>
       )}
 
+      {/* Statement File Upload */}
+      {tab === 'statement' && (
+        <>
+          <div className="card border-2 border-dashed border-gray-200 rounded-3xl p-8 text-center hover:border-primary-200 hover:bg-primary-50 transition-all">
+            <div className="w-16 h-16 rounded-full bg-primary-50 flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">📄</span>
+            </div>
+            <p className="text-sm font-bold text-secondary mb-2">Upload M-Pesa Statement</p>
+            <p className="text-xs text-muted mb-6 max-w-md mx-auto">
+              Upload a Safaricom M-Pesa PDF or CSV statement. Transactions will be extracted
+              and auto-categorized using the same rules as SMS parsing.
+            </p>
+
+            <label className="flex flex-col items-center gap-3 cursor-pointer">
+              <input
+                type="file"
+                accept=".pdf,.csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                className={`w-full md:w-64 px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
+                  statementFile
+                    ? 'bg-primary text-white shadow-lg'
+                    : 'bg-white border-2 border-dashed border-gray-300 text-gray-500 hover:border-primary-300 hover:text-primary-600'
+                }`}
+              >
+                {statementFile ? `Change file: ${statementFile.name}` : 'Choose PDF or CSV'}
+              </button>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-secondary mt-4">
+              <input
+                type="checkbox"
+                checked={autoConfirm}
+                onChange={(e) => setAutoConfirm(e.target.checked)}
+                className="rounded text-primary focus:ring-primary"
+              />
+              Auto-confirm directly into ledger (skip pending queue)
+            </label>
+
+            <div className="flex gap-2 justify-center mt-6">
+              <button onClick={handleParseStatement} disabled={parsing || !statementFile} className="btn-primary px-8">
+                {parsing ? 'Processing Statement...' : 'Import Statement'}
+              </button>
+              <button
+                onClick={() => { setStatementFile(null); setStatementResult(null); setError(''); }}
+                className="btn-secondary px-8"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Error Banner */}
       <AnimatePresence>
         {error && (
@@ -184,6 +275,52 @@ export default function ParseSms() {
               <span className="text-sm">✕</span>
             </div>
             <p className="text-red-600 text-sm font-medium">{error}</p>
+          </motion.div>
+        )}
+
+        {/* Statement Result View */}
+        {statementResult && (
+          <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}
+            className="card bg-emerald-50 border border-emerald-200 space-y-3">
+            <div className="flex items-center gap-2 text-emerald-800">
+              <span className="text-xl">✅</span>
+              <div>
+                <p className="font-extrabold text-sm">Statement Imported Successfully!</p>
+                <p className="text-xs text-emerald-700">
+                  Detected {statementResult.totalParsed} transactions •
+                  {statementResult.logged} logged directly •
+                  {statementResult.pending} pending categorization •
+                  {statementResult.skipped} already in database
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2">
+              {statementResult.items.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white rounded-xl px-3 py-2 text-xs border border-emerald-100">
+                  <div className="truncate max-w-[220px]">
+                    <p className="font-bold text-dark-800 truncate">{item.description || item.counterparty || 'M-Pesa Transaction'}</p>
+                    <span className="text-[10px] text-muted">{item.category}</span>
+                  </div>
+                  <span className={`font-black ${item.type === 'transfer' ? 'text-primary' : item.type === 'income' ? 'text-primary' : 'text-dark-800'}`}>
+                    {item.type === 'transfer' ? '' : item.type === 'income' ? '+' : '-'} KES {item.amount?.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-3">
+              {statementResult.pending > 0 && (
+                <button onClick={() => navigate('/pending')}
+                  className="flex-1 bg-amber-500 text-white py-2.5 rounded-2xl text-xs font-bold transition active:scale-98">
+                  Review Pending →
+                </button>
+              )}
+              <button onClick={() => navigate('/transactions')}
+                className="flex-1 btn-primary !bg-emerald-600 hover:!bg-emerald-700 text-sm py-2.5 text-xs font-bold">
+                View Ledger →
+              </button>
+            </div>
           </motion.div>
         )}
 

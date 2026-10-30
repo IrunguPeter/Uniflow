@@ -11,6 +11,7 @@ require('./models/ChatMessage');
 require('./models/BudgetPlan');
 require('./models/PendingTransaction');
 require('./models/AiAction');
+require('./models/SavingsGoal');
 
 const app = express();
 const PORT = process.env.PORT || 5070;

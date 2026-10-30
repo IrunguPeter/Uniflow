@@ -16,7 +16,7 @@ UniFlow follows a decoupled client-server architecture. The backend is a Node.js
 
 The backend is organized into four layers:
 
-**Models** define the data schema. The `Transaction` model stores every financial event — income, expense, or transfer — tagged with a `provider` field (`MPESA`, `NCBA`, `IM`, `CASH`) that enables per-account balance tracking. The `RecurringExpense` model captures fixed costs (rent, savings, transport) with a `frequency` field (weekly, monthly, semester) that the budget engine converts to a weekly equivalent. The `ChatMessage` model persists AI conversation history per user.
+**Models** define the data schema. The `Transaction` model stores every financial event — income, expense, or transfer — tagged with a `provider` field (`MPESA`, `EQUITY`, `CASH`) that enables per-account balance tracking. The `RecurringExpense` model captures fixed costs (rent, savings, transport) with a `frequency` field (weekly, monthly, semester) that the budget engine converts to a weekly equivalent. The `ChatMessage` model persists AI conversation history per user.
 
 **Services** contain the business logic. `BudgetService` computes weekly spend against an effective limit (user-defined weekly limit minus recurring deductions), calculates separate balances per account provider, and aggregates transaction data into category and monthly breakdowns for charts. `HelbPlannerService` treats a HELB loan as a fixed asset, deducts user-specified fixed costs, and divides the remainder across the semester weeks. `AiFinancialAdvisor` constructs context-rich prompts for Gemma 4 and handles both one-shot spending advice and multi-turn conversations.
 
@@ -28,7 +28,7 @@ The backend is organized into four layers:
 
 The frontend is a mobile-first SPA with five primary views accessible via a bottom navigation bar (Home, Charts, Add, AI Chat, More), plus secondary views for HELB planning, recurring expenses, M-Pesa SMS parsing, and transaction history.
 
-The Dashboard renders separate M-Pesa and Bank balance cards with income/expense mini-breakdowns, a weekly budget progress bar that visually reflects recurring deductions, and an AI insight bubble powered by Gemma 4. The Add Transaction page offers an expense/income toggle, an account picker (M-Pesa, NCBA, I&M, Cash), and category selection. The Charts page visualizes expense and income breakdowns as donut charts, monthly income vs. expenses as a bar chart, and balance trend as a line chart. The Chat page provides a conversational interface with typing indicators, suggestion chips, and persisted history.
+The Dashboard renders separate M-Pesa and Bank balance cards with income/expense mini-breakdowns, a weekly budget progress bar that visually reflects recurring deductions, and an AI insight bubble powered by Gemma 4. The Add Transaction page offers an expense/income toggle, an account picker (M-Pesa, Equity Bank, Cash), and category selection. The Charts page visualizes expense and income breakdowns as donut charts, monthly income vs. expenses as a bar chart, and balance trend as a line chart. The Chat page provides a conversational interface with typing indicators, suggestion chips, and persisted history.
 
 ## 3. Gemma 4 Integration
 
@@ -78,7 +78,7 @@ The original codebase had three fully implemented but unwired features: the M-Pe
 
 ## 6. Scalability Path
 
-UniFlow's architecture supports incremental scaling. Open Banking APIs (NCBA Loop, I&M) can replace manual transaction entry. M-Pesa's Daraja API can automate SMS-equivalent data capture. The chat history enables fine-tuning or RAG-based retrieval for more personalized advice over time. Predictive models can be trained on historical transaction data to forecast when a student will run out of money before it happens. The separation of M-Pesa and Bank balances is the first step toward multi-account aggregation and net worth tracking.
+UniFlow's architecture supports incremental scaling. Open Banking APIs (Equity Bank) can replace manual transaction entry. M-Pesa's Daraja API can automate SMS-equivalent data capture. The chat history enables fine-tuning or RAG-based retrieval for more personalized advice over time. Predictive models can be trained on historical transaction data to forecast when a student will run out of money before it happens. The separation of M-Pesa and Bank balances is the first step toward multi-account aggregation and net worth tracking.
 
 This is not a demo — it is a functional foundation for student financial wellness in East Africa, built on real engineering decisions made under real constraints.
 

@@ -34,20 +34,18 @@ const categoryConfig = {
 
 const providerConfig = {
   MPESA: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-400' },
-  NCBA: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400' },
-  IM: { bg: 'bg-violet-50', text: 'text-violet-600', dot: 'bg-violet-400' },
+  EQUITY: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400' },
   CASH: { bg: 'bg-gray-50', text: 'text-gray-500', dot: 'bg-gray-400' },
 };
 
 const PROVIDERS = [
   { value: 'MPESA', label: 'M-Pesa' },
-  { value: 'NCBA', label: 'NCBA' },
-  { value: 'IM', label: 'I&M' },
+  { value: 'EQUITY', label: 'Equity Bank' },
   { value: 'CASH', label: 'Cash' },
 ];
 
 const providerLabel = (provider) => {
-  if (provider === 'IM') return 'I&M';
+  if (provider === 'EQUITY') return 'Equity Bank';
   if (provider === 'MPESA') return 'M-Pesa';
   return provider;
 };
@@ -62,7 +60,7 @@ const FILTER_TABS = [
 function matchesFilter(tx, filter) {
   if (filter === 'all') return true;
   const accounts = tx.type === 'transfer' ? [tx.provider, tx.toProvider] : [tx.provider];
-  if (filter === 'bank') return accounts.some((a) => a === 'NCBA' || a === 'IM');
+  if (filter === 'bank') return accounts.some((a) => a === 'EQUITY');
   return accounts.includes(filter);
 }
 

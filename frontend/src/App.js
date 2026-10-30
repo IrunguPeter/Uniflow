@@ -6,6 +6,7 @@ import Transactions from './pages/Transactions';
 import AddTransaction from './pages/AddTransaction';
 import ParseSms from './pages/ParseSms';
 import RecurringExpenses from './pages/RecurringExpenses';
+import SavingsGoals from './pages/SavingsGoals';
 import HelbPlanner from './pages/HelbPlanner';
 import BudgetTool from './pages/BudgetTool';
 import Charts from './pages/Charts';
@@ -75,6 +76,13 @@ const sidebarTabs = [
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#10B981' : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
       <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+    </svg>
+  )},
+  { to: '/savings-goals', label: 'Goals', icon: (active) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#10B981' : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="2" x2="12" y2="22" />
+      <path d="M17 5h9.5a3.5 3.5 0 013.5 3.5v9.5a3.5 3.5 0 01-3.5 3.5h-9.5" />
+      <polyline points="3 13 9 19 21 9" />
     </svg>
   )},
   { to: '/helb', label: 'HELB', icon: (active) => (
@@ -203,31 +211,46 @@ function AppShell() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen">
-      <Sidebar />
-      <main className="md:ml-64 px-4 md:px-8 lg:px-12 pt-4 pb-28 md:pb-8 md:pt-8" key={location.pathname}>
-        <div className="max-w-5xl mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div key={location.pathname} variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/transactions" element={<Transactions />} />
-                <Route path="/add" element={<AddTransaction />} />
-                <Route path="/parse-sms" element={<ParseSms />} />
-                <Route path="/pending" element={<PendingTransactions />} />
-                <Route path="/recurring" element={<RecurringExpenses />} />
-                <Route path="/helb" element={<HelbPlanner />} />
-                <Route path="/budget" element={<BudgetTool />} />
-                <Route path="/charts" element={<Charts />} />
-                <Route path="/chat" element={<Chat />} />
-                <Route path="/transfer" element={<Transfers />} />
-                <Route path="/ai-activity" element={<AiActivity />} />
-              </Routes>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </main>
-      <BottomNav />
+    <div className="min-h-screen relative">
+      {/* Animated Background */}
+      <div className="page-bg">
+        <div className="aurora aurora-1" />
+        <div className="aurora aurora-2" />
+        <div className="aurora aurora-3" />
+        <div className="aurora aurora-4" />
+        <div className="floating-shape shape-1" />
+        <div className="floating-shape shape-2" />
+        <div className="floating-shape shape-3" />
+        <div className="floating-shape shape-4" />
+      </div>
+
+      <div className="content-layer">
+        <Sidebar />
+        <main className="md:ml-64 px-4 md:px-8 lg:px-12 pt-4 pb-28 md:pb-8 md:pt-8" key={location.pathname}>
+          <div className="max-w-5xl mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div key={location.pathname} variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/transactions" element={<Transactions />} />
+                  <Route path="/add" element={<AddTransaction />} />
+                  <Route path="/parse-sms" element={<ParseSms />} />
+                  <Route path="/pending" element={<PendingTransactions />} />
+                  <Route path="/recurring" element={<RecurringExpenses />} />
+                  <Route path="/savings-goals" element={<SavingsGoals />} />
+                  <Route path="/helb" element={<HelbPlanner />} />
+                  <Route path="/budget" element={<BudgetTool />} />
+                  <Route path="/charts" element={<Charts />} />
+                  <Route path="/chat" element={<Chat />} />
+                  <Route path="/transfer" element={<Transfers />} />
+                  <Route path="/ai-activity" element={<AiActivity />} />
+                </Routes>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
+        <BottomNav />
+      </div>
     </div>
   );
 }

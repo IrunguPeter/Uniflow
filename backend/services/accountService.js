@@ -2,13 +2,12 @@ const Transaction = require('../models/Transaction');
 
 /**
  * The accounts a student can hold money in.
- * Bank is modelled as two providers (NCBA / I&M) so money can move between
- * them, while the Dashboard still reports them together as "Bank".
+ * Bank is modelled as a single provider (Equity Bank) while the Dashboard
+ * still reports M-Pesa, Bank and Cash separately.
  */
 const ACCOUNTS = [
     { provider: 'MPESA', label: 'M-Pesa', group: 'mpesa', icon: '📱', tint: 'emerald' },
-    { provider: 'NCBA', label: 'NCBA', group: 'bank', icon: '🏦', tint: 'blue' },
-    { provider: 'IM', label: 'I&M', group: 'bank', icon: '🏦', tint: 'violet' },
+    { provider: 'EQUITY', label: 'Equity Bank', group: 'bank', icon: '🏦', tint: 'blue' },
     { provider: 'CASH', label: 'Cash', group: 'cash', icon: '💵', tint: 'gray' },
 ];
 

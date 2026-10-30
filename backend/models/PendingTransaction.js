@@ -33,11 +33,11 @@ const PendingTransaction = sequelize.define('PendingTransaction', {
     // Set when the parsed SMS is a movement of money between the user's own
     // accounts (e.g. M-Pesa cash withdrawal -> Cash, agent deposit -> M-Pesa)
     fromProvider: {
-        type: DataTypes.ENUM('MPESA', 'NCBA', 'IM', 'CASH'),
+        type: DataTypes.ENUM('MPESA', 'EQUITY', 'CASH'),
         allowNull: true
     },
     toProvider: {
-        type: DataTypes.ENUM('MPESA', 'NCBA', 'IM', 'CASH'),
+        type: DataTypes.ENUM('MPESA', 'EQUITY', 'CASH'),
         allowNull: true
     },
     status: {

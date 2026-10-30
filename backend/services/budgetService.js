@@ -63,26 +63,25 @@ class BudgetService {
         const accounts = await AccountService.getBalances(userId);
 
         const mpesa = accounts.MPESA;
-        const ncba = accounts.NCBA;
-        const im = accounts.IM;
+        const equity = accounts.EQUITY;
         const cash = accounts.CASH;
 
         // Balances include transfers in/out, income/expense totals do not —
         // moving money between your own accounts is not income or spending.
         const mpesaBalance = mpesa.balance;
-        const bankBalance = ncba.balance + im.balance;
+        const bankBalance = equity.balance;
         const cashBalance = cash.balance;
 
-        const income = mpesa.income + ncba.income + im.income + cash.income;
-        const expenses = mpesa.expenses + ncba.expenses + im.expenses + cash.expenses;
+        const income = mpesa.income + equity.income + cash.income;
+        const expenses = mpesa.expenses + equity.expenses + cash.expenses;
 
         return {
             mpesaBalance,
             mpesaIncome: mpesa.income,
             mpesaExpenses: mpesa.expenses,
             bankBalance,
-            bankIncome: ncba.income + im.income,
-            bankExpenses: ncba.expenses + im.expenses,
+            bankIncome: equity.income,
+            bankExpenses: equity.expenses,
             cashBalance,
             cashIncome: cash.income,
             cashExpenses: cash.expenses,

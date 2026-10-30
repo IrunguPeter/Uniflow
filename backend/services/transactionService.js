@@ -111,7 +111,7 @@ class TransactionService {
 
         if (changes.provider !== undefined) {
             if (!isValidProvider(changes.provider)) {
-                throw new TransactionServiceError('Invalid account. Must be one of: MPESA, NCBA, IM, CASH', 'INVALID_ACCOUNT');
+                throw new TransactionServiceError('Invalid account. Must be one of: MPESA, EQUITY, CASH', 'INVALID_ACCOUNT');
             }
             updates.provider = changes.provider;
         }
@@ -120,7 +120,7 @@ class TransactionService {
             if (changes.toProvider === null || changes.toProvider === '') {
                 updates.toProvider = null;
             } else if (!isValidProvider(changes.toProvider)) {
-                throw new TransactionServiceError('Invalid destination account. Must be one of: MPESA, NCBA, IM, CASH', 'INVALID_ACCOUNT');
+                throw new TransactionServiceError('Invalid destination account. Must be one of: MPESA, EQUITY, CASH', 'INVALID_ACCOUNT');
             } else {
                 updates.toProvider = changes.toProvider;
             }

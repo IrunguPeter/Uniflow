@@ -91,6 +91,35 @@ export async function updateSavingsConfig(savingsPercentage, userId = 'demo-user
   return data;
 }
 
+// ── Savings Goals ───────────────────────────────────────────────────
+
+export async function getSavingsGoals(activeOnly = false, userId = 'demo-user') {
+  const params = { userId };
+  if (activeOnly) params.activeOnly = 'true';
+  const { data } = await api.get('/savings-goals', { params });
+  return data;
+}
+
+export async function createSavingsGoal(goal, userId = 'demo-user') {
+  const { data } = await api.post('/savings-goals', { ...goal, userId });
+  return data;
+}
+
+export async function updateSavingsGoal(id, changes, userId = 'demo-user') {
+  const { data } = await api.patch(`/savings-goals/${id}`, { ...changes, userId });
+  return data;
+}
+
+export async function deleteSavingsGoal(id, userId = 'demo-user') {
+  const { data } = await api.delete(`/savings-goals/${id}`, { params: { userId } });
+  return data;
+}
+
+export async function contributeToSavingsGoal(id, amount, userId = 'demo-user') {
+  const { data } = await api.post(`/savings-goals/${id}/contribute`, { amount, userId });
+  return data;
+}
+
 export async function getBudgetPlan(userId = 'demo-user') {
   const { data } = await api.get('/budget-plan', { params: { userId } });
   return data;
@@ -148,6 +177,19 @@ export async function ignoreTransaction(id) {
 
 export async function autoCategorizePending(userId = 'demo-user') {
   const { data } = await api.post('/pending-transactions/auto-categorize', { userId });
+  return data;
+}
+
+// ── M-Pesa Statement File Upload ───────────────────────────────────
+
+export async function parseStatementFile(file, autoConfirm = false, userId = 'demo-user') {
+  const formData = new FormData();
+  formData.append('statement', file);
+  formData.append('autoConfirm', autoConfirm);
+  formData.append('userId', userId);
+  const { data } = await api.post('/parse-statement', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
   return data;
 }
 

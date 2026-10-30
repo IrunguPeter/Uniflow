@@ -10,17 +10,11 @@ const ACCOUNT_STYLES = {
         dot: 'bg-emerald-400',
         text: 'text-emerald-600',
     },
-    NCBA: {
+    EQUITY: {
         active: 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm',
         idle: 'border-dark-100 bg-white text-dark-700 hover:border-blue-200',
         dot: 'bg-blue-400',
         text: 'text-blue-600',
-    },
-    IM: {
-        active: 'border-violet-500 bg-violet-50 text-violet-700 shadow-sm',
-        idle: 'border-dark-100 bg-white text-dark-700 hover:border-violet-200',
-        dot: 'bg-violet-400',
-        text: 'text-violet-600',
     },
     CASH: {
         active: 'border-dark-400 bg-dark-100 text-dark-800 shadow-sm',

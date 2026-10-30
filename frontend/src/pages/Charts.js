@@ -71,7 +71,7 @@ export default function Charts() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Expense Pie */}
             {expensesByCategory.length > 0 && (
-            <motion.div variants={fadeUp} className="card">
+            <motion.div variants={fadeUp} className="card-glow">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center">
                   <span className="text-sm">💸</span>
@@ -100,7 +100,7 @@ export default function Charts() {
 
           {/* Income Pie */}
           {incomeByCategory.length > 0 && (
-            <motion.div variants={fadeUp} className="card">
+            <motion.div variants={fadeUp} className="card-glow">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
                   <span className="text-sm">💰</span>
@@ -132,7 +132,7 @@ export default function Charts() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Monthly Bar */}
           {monthlyData.length > 0 && (
-            <motion.div variants={fadeUp} className="card">
+            <motion.div variants={fadeUp} className="card-glow">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
                   <span className="text-sm">📈</span>
@@ -155,7 +155,7 @@ export default function Charts() {
 
           {/* Balance Trend */}
           {balanceTrend.length > 0 && (
-            <motion.div variants={fadeUp} className="card">
+            <motion.div variants={fadeUp} className="card-glow">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center">
                   <span className="text-sm">📉</span>

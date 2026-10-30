@@ -11,13 +11,11 @@ move *balances* without ever looking like spending.
 | Provider | Label | Group | Notes |
 |---|---|---|---|
 | `MPESA` | M-Pesa | mpesa | Safaricom wallet |
-| `NCBA` | NCBA | bank | Bank account |
-| `IM` | I&M | bank | Bank account |
+| `EQUITY` | Equity Bank | bank | Bank account |
 | `CASH` | Cash | cash | Physical money in your pocket |
 
-The Dashboard groups `NCBA` + `IM` into a single **Bank** figure, but the
-transfer screen keeps them apart so you can move money between your own bank
-accounts too.
+The Dashboard reports **Bank** as a single figure backed by Equity Bank. The
+transfer screen lets you move money between M-Pesa, Equity Bank and Cash.
 
 The account list lives in `backend/services/accountService.js` — add an entry
 there to support another provider (the `Transaction.provider` and
@@ -33,7 +31,7 @@ A transfer is a normal `Transaction` row with `type = 'transfer'`:
 {
   type: 'transfer',
   provider: 'MPESA',      // source account
-  toProvider: 'NCBA',     // destination account
+  toProvider: 'EQUITY',     // destination account
   amount: 1000,
   category: 'Transfer',
   description: 'School fees'
@@ -92,7 +90,7 @@ look like you spent KES 1,000.
 ### `POST /api/finance/transfers`
 
 ```json
-{ "from": "MPESA", "to": "NCBA", "amount": 1000, "description": "School fees" }
+{ "from": "MPESA", "to": "EQUITY", "amount": 1000, "description": "School fees" }
 ```
 
 | Status | Meaning |
@@ -150,7 +148,7 @@ Everything else stays an expense or income, exactly as before.
 | File | Role |
 |---|---|
 | `frontend/src/pages/Transfers.js` | Transfer form, live balances, before/after preview, history |
-| `frontend/src/pages/Transactions.js` | Ledger renders transfers as `M-Pesa → NCBA`; filters match either side |
+| `frontend/src/pages/Transactions.js` | Ledger renders transfers as `M-Pesa → Equity Bank`; filters match either side |
 | `frontend/src/pages/AddTransaction.js` | Income/expense only, with a shortcut to the transfer screen |
 | `frontend/src/pages/Dashboard.js` | "Transfer money" card under the balance hero |
 | `frontend/src/pages/PendingTransactions.js` | SMS cash movements can be recorded as transfers |

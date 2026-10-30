@@ -24,12 +24,12 @@ const Transaction = sequelize.define('Transaction', {
     },
     // Account the money left from (or was recorded against)
     provider: {
-        type: DataTypes.ENUM('MPESA', 'NCBA', 'IM', 'CASH'),
+        type: DataTypes.ENUM('MPESA', 'EQUITY', 'CASH'),
         allowNull: false
     },
     // Destination account — only set for transfers between the user's own accounts
     toProvider: {
-        type: DataTypes.ENUM('MPESA', 'NCBA', 'IM', 'CASH'),
+        type: DataTypes.ENUM('MPESA', 'EQUITY', 'CASH'),
         allowNull: true
     },
     description: {

@@ -23,8 +23,7 @@ const CATEGORIES = [
 
 const PROVIDER_LABELS = {
   MPESA: 'M-Pesa',
-  NCBA: 'NCBA',
-  IM: 'I&M',
+  EQUITY: 'Equity Bank',
   CASH: 'Cash',
 };
 

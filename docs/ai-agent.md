@@ -9,7 +9,7 @@ Ask it things like:
 - *"Change my KPLC transaction to Food & Dining"*
 - *"Categorize everything pending"*
 - *"Log a 500 shilling lunch on M-Pesa"*
-- *"Move 2000 from M-Pesa to NCBA"*
+- *"Move 2000 from M-Pesa to Equity Bank"*
 - *"Delete that 50 bob Uber trip"* → you get asked to confirm first
 
 ---
@@ -121,7 +121,7 @@ Edit a transaction. Registered for both `PATCH` and `PUT`.
   "description": "KPLC prepaid token",
   "category": "Utilities & Bills",
   "type": "expense",          // income | expense | transfer
-  "provider": "MPESA",        // MPESA | NCBA | IM | CASH
+  "provider": "MPESA",        // MPESA | EQUITY | CASH
   "toProvider": null,         // destination, transfers only
   "timestamp": "2026-10-22T08:00:00.000Z",
   "force": false              // true skips the funds check

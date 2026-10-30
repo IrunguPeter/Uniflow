@@ -1,13 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const BudgetService = require('../services/budgetService');
 const AiFinancialAdvisor = require('../services/aiService');
 const HelbPlannerService = require('../services/helbService');
 const { parseMpesaSMS, parseBatchMpesaSMS } = require('../utils/mpesaParser');
+const { parsePdfStatement, parseCsvStatement } = require('../utils/mpesaStatement');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const Transaction = require('../models/Transaction');
 const PendingTransaction = require('../models/PendingTransaction');
 const User = require('../models/User');
 const RecurringExpense = require('../models/RecurringExpense');
+const SavingsGoal = require('../models/SavingsGoal');
 const ChatMessage = require('../models/ChatMessage');
 const BudgetPlan = require('../models/BudgetPlan');
 const { AccountService, getAccountLabel } = require('../services/accountService');
@@ -18,7 +23,7 @@ const { TOOLS, requestTool, confirmAction, cancelAction } = require('../services
 const AiAction = require('../models/AiAction');
 
 const VALID_TYPES = ['income', 'expense', 'transfer'];
-const VALID_PROVIDERS = ['MPESA', 'NCBA', 'IM', 'CASH'];
+const VALID_PROVIDERS = ['MPESA', 'EQUITY', 'CASH'];
 const VALID_FREQUENCIES = ['weekly', 'monthly', 'semester'];
 const VALID_RECURRING_TYPES = ['expense', 'income'];
 
@@ -47,10 +52,24 @@ router.get('/budget-insight', async (req, res) => {
 
         const leaks = await BudgetService.getSpendingLeaksAnalysis(userId || 'demo-user');
 
+        const savingsGoals = await SavingsGoal.findAll({
+            where: { userId: userId || 'demo-user', isActive: true },
+            order: [['createdAt', 'ASC']]
+        });
+
         res.json({
             ...budgetData,
             ...balances,
             savingsPercentage: user.savingsPercentage || 0,
+            savingsGoals: savingsGoals.map(g => ({
+                id: g.id,
+                name: g.name,
+                targetAmount: g.targetAmount,
+                currentAmount: g.currentAmount,
+                targetDate: g.targetDate,
+                category: g.category,
+                progress: g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0
+            })),
             aiAdvice: advice,
             spendingLeaks: leaks
         });
@@ -136,25 +155,78 @@ router.post('/transactions', async (req, res) => {
         });
 
         let savingsTx = null;
+        let goalContributions = [];
         if (txType === 'income') {
             const user = await User.findOrCreateByUserId(uid);
             if (user.savingsPercentage > 0) {
                 const savingsAmount = Math.round(amount * (user.savingsPercentage / 100));
                 if (savingsAmount > 0) {
-                    savingsTx = await Transaction.create({
-                        userId: uid,
-                        amount: savingsAmount,
-                        description: `Auto-saved from ${description.trim()}`,
-                        category: 'Savings',
-                        type: 'expense',
-                        provider: provider || 'CASH',
-                        timestamp: timestamp || new Date()
+                    const activeGoals = await SavingsGoal.findAll({
+                        where: { userId: uid, isActive: true },
+                        order: [['createdAt', 'ASC']]
                     });
+
+                    if (activeGoals.length > 0) {
+                        // Distribute the auto-saved amount across active goals,
+                        // filling each goal up to its target before moving to the next.
+                        let remaining = savingsAmount;
+                        for (const goal of activeGoals) {
+                            if (remaining <= 0) break;
+                            const need = Math.max(0, goal.targetAmount - goal.currentAmount);
+                            const contribute = Math.min(remaining, need);
+                            if (contribute > 0) {
+                                goal.currentAmount += contribute;
+                                await goal.save();
+                                remaining -= contribute;
+
+                                const contributionTx = await Transaction.create({
+                                    userId: uid,
+                                    amount: contribute,
+                                    description: `Saved toward ${goal.name}`,
+                                    category: goal.category,
+                                    type: 'expense',
+                                    provider: provider || 'CASH',
+                                    timestamp: timestamp || new Date()
+                                });
+                                goalContributions.push({
+                                    goalId: goal.id,
+                                    goalName: goal.name,
+                                    amount: contribute,
+                                    newCurrentAmount: goal.currentAmount,
+                                    transaction: contributionTx
+                                });
+                            }
+                        }
+
+                        // Any leftover (all goals fully funded) goes to a generic savings tx.
+                        if (remaining > 0) {
+                            savingsTx = await Transaction.create({
+                                userId: uid,
+                                amount: remaining,
+                                description: `Auto-saved from ${description.trim()}`,
+                                category: 'Savings',
+                                type: 'expense',
+                                provider: provider || 'CASH',
+                                timestamp: timestamp || new Date()
+                            });
+                        }
+                    } else {
+                        // No active goals — fall back to a generic savings transaction.
+                        savingsTx = await Transaction.create({
+                            userId: uid,
+                            amount: savingsAmount,
+                            description: `Auto-saved from ${description.trim()}`,
+                            category: 'Savings',
+                            type: 'expense',
+                            provider: provider || 'CASH',
+                            timestamp: timestamp || new Date()
+                        });
+                    }
                 }
             }
         }
 
-        res.status(201).json({ transaction, savingsTx });
+        res.status(201).json({ transaction, savingsTx, goalContributions });
     } catch (error) {
         console.error('Add transaction error:', error);
         res.status(500).json({ error: 'Failed to save transaction' });
@@ -353,6 +425,7 @@ router.post('/parse-sms', async (req, res) => {
 router.post('/parse-batch-sms', async (req, res) => {
     const { batchText, autoConfirm, userId } = req.body;
     const uid = userId || 'demo-user';
+    const autoConfirmBool = autoConfirm === 'true' || autoConfirm === true;
 
     if (!batchText || typeof batchText !== 'string' || batchText.trim().length === 0) {
         return res.status(400).json({ error: 'Batch SMS text is required' });
@@ -375,7 +448,7 @@ router.post('/parse-batch-sms', async (req, res) => {
 
         for (const item of parsedList) {
             try {
-                if (autoConfirm) {
+                if (autoConfirmBool) {
                     // Cash withdrawals / deposits move money between M-Pesa and
                     // Cash — record them as transfers, not spending.
                     if (item.type === 'transfer' && item.fromProvider && item.toProvider) {
@@ -438,6 +511,112 @@ router.post('/parse-batch-sms', async (req, res) => {
     } catch (error) {
         console.error('Batch parse error:', error);
         res.status(500).json({ error: 'Failed to process batch SMS' });
+    }
+});
+
+// ── Parse M-Pesa Statement File (PDF / CSV) ───────────────────────
+
+router.post('/parse-statement', upload.single('statement'), async (req, res) => {
+    const { userId, autoConfirm } = req.body;
+    const uid = userId || 'demo-user';
+    const autoConfirmBool = autoConfirm === 'true' || autoConfirm === true;
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'No statement file uploaded' });
+    }
+
+    const fileName = req.file.originalname || '';
+    const isPdf = fileName.toLowerCase().endsWith('.pdf');
+    const isCsv = fileName.toLowerCase().endsWith('.csv');
+
+    if (!isPdf && !isCsv) {
+        return res.status(400).json({ error: 'Only PDF or CSV M-Pesa statements are supported' });
+    }
+
+    try {
+        let parsedList = [];
+
+        if (isPdf) {
+            parsedList = await parsePdfStatement(req.file.buffer);
+        } else {
+            const csvText = req.file.buffer.toString('utf-8');
+            parsedList = parseCsvStatement(csvText);
+        }
+
+        if (parsedList.length === 0) {
+            return res.status(400).json({ error: 'No transactions found in statement' });
+        }
+
+        const results = {
+            totalParsed: parsedList.length,
+            logged: 0,
+            pending: 0,
+            skipped: 0,
+            items: []
+        };
+
+        for (const item of parsedList) {
+            try {
+                if (autoConfirmBool) {
+                    // Transfers move money between accounts — not spending
+                    if (item.type === 'transfer' && item.fromProvider && item.toProvider) {
+                        const tx = await TransferService.create({
+                            userId: uid,
+                            from: item.fromProvider,
+                            to: item.toProvider,
+                            amount: item.amount,
+                            description: item.description,
+                            timestamp: item.timestamp,
+                            transactionReference: item.ref,
+                            force: true
+                        });
+                        results.logged++;
+                        results.items.push(tx);
+                        continue;
+                    }
+
+                    const tx = await Transaction.create({
+                        userId: uid,
+                        amount: item.amount,
+                        description: item.description,
+                        category: item.category,
+                        type: item.type,
+                        provider: 'MPESA',
+                        transactionReference: item.ref,
+                        timestamp: item.timestamp
+                    });
+                    results.logged++;
+                    results.items.push(tx);
+                } else {
+                    const pTx = await PendingTransaction.create({
+                        userId: uid,
+                        rawSms: item.rawSms || item.description,
+                        amount: item.amount,
+                        type: item.type,
+                        counterparty: item.counterparty,
+                        transactionReference: item.ref,
+                        suggestedDescription: item.description,
+                        fromProvider: item.fromProvider || null,
+                        toProvider: item.toProvider || null,
+                        status: 'pending',
+                        timestamp: item.timestamp
+                    });
+                    results.pending++;
+                    results.items.push(pTx);
+                }
+            } catch (err) {
+                if (err.name === 'SequelizeUniqueConstraintError') {
+                    results.skipped++;
+                } else {
+                    console.error('Statement item error:', err);
+                }
+            }
+        }
+
+        res.json(results);
+    } catch (error) {
+        console.error('Statement parse error:', error);
+        res.status(500).json({ error: 'Failed to process statement file' });
     }
 });
 
@@ -854,6 +1033,179 @@ router.put('/savings-config', async (req, res) => {
     } catch (error) {
         console.error('Update savings config error:', error);
         res.status(500).json({ error: 'Failed to update savings config' });
+    }
+});
+
+// ── Savings Goals ───────────────────────────────────────────────────
+
+router.get('/savings-goals', async (req, res) => {
+    const { userId, activeOnly } = req.query;
+    const uid = userId || 'demo-user';
+
+    try {
+        const where = { userId: uid };
+        if (activeOnly === 'true') where.isActive = true;
+
+        const goals = await SavingsGoal.findAll({
+            where,
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.json(goals.map(g => ({
+            id: g.id,
+            name: g.name,
+            targetAmount: g.targetAmount,
+            currentAmount: g.currentAmount,
+            targetDate: g.targetDate,
+            category: g.category,
+            isActive: g.isActive,
+            progress: g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0,
+            remaining: Math.max(0, g.targetAmount - g.currentAmount)
+        })));
+    } catch (error) {
+        console.error('Fetch savings goals error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/savings-goals', async (req, res) => {
+    const { userId, name, targetAmount, targetDate, category, isActive } = req.body;
+    const uid = userId || 'demo-user';
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ error: 'Goal name is required' });
+    }
+    if (!targetAmount || typeof targetAmount !== 'number' || targetAmount <= 0) {
+        return res.status(400).json({ error: 'Target amount must be a positive number' });
+    }
+
+    try {
+        const goal = await SavingsGoal.create({
+            userId: uid,
+            name: name.trim(),
+            targetAmount,
+            currentAmount: 0,
+            targetDate: targetDate || null,
+            category: category || 'Savings',
+            isActive: isActive !== undefined ? isActive : true
+        });
+
+        res.status(201).json({
+            id: goal.id,
+            name: goal.name,
+            targetAmount: goal.targetAmount,
+            currentAmount: goal.currentAmount,
+            targetDate: goal.targetDate,
+            category: goal.category,
+            isActive: goal.isActive,
+            progress: 0,
+            remaining: goal.targetAmount
+        });
+    } catch (error) {
+        console.error('Create savings goal error:', error);
+        res.status(500).json({ error: 'Failed to create savings goal' });
+    }
+});
+
+router.patch('/savings-goals/:id', async (req, res) => {
+    const { id } = req.params;
+    const { userId, name, targetAmount, targetDate, category, isActive } = req.body;
+    const uid = userId || 'demo-user';
+
+    try {
+        const goal = await SavingsGoal.findOne({ where: { id, userId: uid } });
+        if (!goal) {
+            return res.status(404).json({ error: 'Savings goal not found' });
+        }
+
+        if (name !== undefined) goal.name = name.trim();
+        if (targetAmount !== undefined) goal.targetAmount = targetAmount;
+        if (targetDate !== undefined) goal.targetDate = targetDate || null;
+        if (category !== undefined) goal.category = category;
+        if (isActive !== undefined) goal.isActive = isActive;
+
+        await goal.save();
+
+        res.json({
+            id: goal.id,
+            name: goal.name,
+            targetAmount: goal.targetAmount,
+            currentAmount: goal.currentAmount,
+            targetDate: goal.targetDate,
+            category: goal.category,
+            isActive: goal.isActive,
+            progress: goal.targetAmount > 0 ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0,
+            remaining: Math.max(0, goal.targetAmount - goal.currentAmount)
+        });
+    } catch (error) {
+        console.error('Update savings goal error:', error);
+        res.status(500).json({ error: 'Failed to update savings goal' });
+    }
+});
+
+router.delete('/savings-goals/:id', async (req, res) => {
+    const { id } = req.params;
+    const uid = req.query.userId || req.body?.userId || 'demo-user';
+
+    try {
+        const deleted = await SavingsGoal.destroy({ where: { id, userId: uid } });
+        if (!deleted) {
+            return res.status(404).json({ error: 'Savings goal not found' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete savings goal error:', error);
+        res.status(500).json({ error: 'Failed to delete savings goal' });
+    }
+});
+
+router.post('/savings-goals/:id/contribute', async (req, res) => {
+    const { id } = req.params;
+    const { userId, amount } = req.body;
+    const uid = userId || 'demo-user';
+
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ error: 'Contribution amount must be a positive number' });
+    }
+
+    try {
+        const goal = await SavingsGoal.findOne({ where: { id, userId: uid } });
+        if (!goal) {
+            return res.status(404).json({ error: 'Savings goal not found' });
+        }
+
+        const need = Math.max(0, goal.targetAmount - goal.currentAmount);
+        const contribute = Math.min(amount, need);
+
+        goal.currentAmount += contribute;
+        await goal.save();
+
+        // Record the contribution as a savings expense (money set aside from the account)
+        const contributionTx = await Transaction.create({
+            userId: uid,
+            amount: contribute,
+            description: `Contributed to ${goal.name}`,
+            category: goal.category,
+            type: 'expense',
+            provider: 'CASH',
+            timestamp: new Date()
+        });
+
+        res.json({
+            goal: {
+                id: goal.id,
+                name: goal.name,
+                targetAmount: goal.targetAmount,
+                currentAmount: goal.currentAmount,
+                progress: goal.targetAmount > 0 ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0,
+                remaining: Math.max(0, goal.targetAmount - goal.currentAmount)
+            },
+            contributed: contribute,
+            transaction: contributionTx
+        });
+    } catch (error) {
+        console.error('Contribute to savings goal error:', error);
+        res.status(500).json({ error: 'Failed to contribute to savings goal' });
     }
 });
 

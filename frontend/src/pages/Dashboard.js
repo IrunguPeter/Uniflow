@@ -136,9 +136,8 @@ export default function Dashboard() {
       </div>
 
       {/* Hero Balance Card */}
-      <motion.div variants={fadeUp} className="relative overflow-hidden rounded-[2rem] p-6 md:p-8 text-white">
-        <div className="absolute inset-0 gradient-hero" />
-        <div className="absolute inset-0 opacity-30">
+      <motion.div variants={fadeUp} className="relative overflow-hidden rounded-[2.5rem] p-6 md:p-8 text-white card-glow">
+        <div className="absolute inset-0 opacity-40">
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 -mr-20 -mt-20" />
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-white/5 -ml-12 -mb-12" />
           <div className="absolute top-1/2 left-1/2 w-32 h-32 rounded-full bg-white/5 -translate-x-1/2 -translate-y-1/2" />
@@ -148,21 +147,23 @@ export default function Dashboard() {
             <div className="w-2 h-2 rounded-full bg-white/60 animate-pulse" />
             <p className="text-white/70 text-[11px] font-bold uppercase tracking-[0.2em]">Total Balance</p>
           </div>
-          <p className="text-5xl md:text-6xl font-black tracking-tight mb-6">
+          <p className="text-5xl md:text-6xl font-black tracking-tight mb-6 text-gradient">
             KES {(data.balance || 0).toLocaleString()}
           </p>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'M-Pesa', value: data.mpesaBalance, icon: '📱' },
-              { label: 'Bank', value: data.bankBalance, icon: '🏦' },
-              { label: 'Cash', value: data.cashBalance, icon: '💵' },
+              { label: 'M-Pesa', value: data.mpesaBalance, icon: '📱', tint: 'text-emerald-400' },
+              { label: 'Bank', value: data.bankBalance, icon: '🏦', tint: 'text-blue-400' },
+              { label: 'Cash', value: data.cashBalance, icon: '💵', tint: 'text-gray-400' },
             ].map((item) => (
               <div key={item.label} className="bg-white/15 backdrop-blur-sm rounded-2xl px-3 py-3 border border-white/10">
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-xs">{item.icon}</span>
                   <p className="text-[10px] text-white/60 font-semibold">{item.label}</p>
                 </div>
-                <p className="text-base md:text-lg font-bold">KES {(item.value || 0).toLocaleString()}</p>
+                <p className={`text-base md:text-lg font-bold ${item.tint}`}>
+                  KES {(item.value || 0).toLocaleString()}
+                </p>
               </div>
             ))}
           </div>
@@ -194,7 +195,7 @@ export default function Dashboard() {
       {/* Budget + AI Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Weekly Budget */}
-        <motion.div variants={fadeUp} className="card">
+        <motion.div variants={fadeUp} className="card-glow">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-primary-50 flex items-center justify-center">
@@ -256,8 +257,8 @@ export default function Dashboard() {
           {/* Savings Badge */}
           {data.savingsPercentage > 0 && (
             <motion.div variants={fadeUp}
-              className="relative overflow-hidden rounded-3xl p-5 border border-pink-200/50"
-              style={{ background: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%, #FBCFE8 100%)' }}>
+              className="card-glow relative overflow-hidden p-5 border border-pink-100/50"
+              style={{ background: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%)' }}>
               <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-pink-200/30 -mr-8 -mt-8" />
               <div className="relative z-10 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center flex-shrink-0">
@@ -274,8 +275,8 @@ export default function Dashboard() {
           {/* AI Advice */}
           {data.aiAdvice && (
             <motion.div variants={fadeUp}
-              className="relative overflow-hidden rounded-3xl p-5 border border-amber-200/50"
-              style={{ background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 30%)' }}>
+              className="card-glow relative overflow-hidden p-5 border border-amber-100/50"
+              style={{ background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' }}>
               <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-amber-200/30 -mr-10 -mt-10" />
               <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-amber-200/20 -ml-6 -mb-6" />
               <div className="relative z-10 flex gap-4">
@@ -381,16 +382,19 @@ export default function Dashboard() {
         <p className="section-title">Quick Actions</p>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
           {[
-            { label: 'Add Entry', icon: '✏️', to: '/add', color: 'from-primary-50 to-primary-100', text: 'text-primary-700' },
-            { label: 'Parse SMS', icon: '📱', to: '/parse-sms', color: 'from-blue-50 to-blue-100', text: 'text-blue-700' },
-            { label: 'HELB Plan', icon: '🎓', to: '/helb', color: 'from-purple-50 to-purple-100', text: 'text-purple-700' },
-            { label: 'Budget', icon: '📊', to: '/budget', color: 'from-amber-50 to-amber-100', text: 'text-amber-700' },
-            { label: 'Recurring', icon: '🔁', to: '/recurring', color: 'from-emerald-50 to-emerald-100', text: 'text-emerald-700' },
-            { label: 'Charts', icon: '📈', to: '/charts', color: 'from-indigo-50 to-indigo-100', text: 'text-indigo-700' },
+            { label: 'Add Entry', icon: '✏️', to: '/add', color: 'from-primary-50 to-primary-100', text: 'text-primary-700', tint: 'bg-primary-500' },
+            { label: 'Parse SMS', icon: '📱', to: '/parse-sms', color: 'from-blue-50 to-blue-100', text: 'text-blue-700', tint: 'bg-blue-500' },
+            { label: 'HELB Plan', icon: '🎓', to: '/helb', color: 'from-purple-50 to-purple-100', text: 'text-purple-700', tint: 'bg-purple-500' },
+            { label: 'Budget', icon: '📊', to: '/budget', color: 'from-amber-50 to-amber-100', text: 'text-amber-700', tint: 'bg-amber-500' },
+            { label: 'Recurring', icon: '🔁', to: '/recurring', color: 'from-emerald-50 to-emerald-100', text: 'text-emerald-700', tint: 'bg-emerald-500' },
+            { label: 'Charts', icon: '📈', to: '/charts', color: 'from-indigo-50 to-indigo-100', text: 'text-indigo-700', tint: 'bg-indigo-500' },
+            { label: 'Goals', icon: '🎯', to: '/savings-goals', color: 'from-pink-50 to-pink-100', text: 'text-pink-700', tint: 'bg-pink-500' },
           ].map((a) => (
             <button key={a.to} onClick={() => navigate(a.to)}
-              className={`bg-gradient-to-br ${a.color} rounded-2xl p-4 flex flex-col items-center gap-2.5 transition-all duration-200 active:scale-95 hover:shadow-md`}>
-              <span className="text-2xl">{a.icon}</span>
+              className={`bg-gradient-to-br ${a.color} rounded-2xl p-4 flex flex-col items-center gap-2.5 transition-all duration-300 active:scale-95 hover:shadow-lg hover:-translate-y-1 border border-white/50`}>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${a.tint}`}>
+                <span className="text-lg">{a.icon}</span>
+              </div>
               <span className={`text-[11px] font-bold ${a.text}`}>{a.label}</span>
             </button>
           ))}

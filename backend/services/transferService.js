@@ -20,7 +20,7 @@ class TransferService {
      *
      * @param {object} options
      * @param {string} options.userId
-     * @param {string} options.from       source account (MPESA | NCBA | IM | CASH)
+     * @param {string} options.from       source account (MPESA | EQUITY | CASH)
      * @param {string} options.to         destination account
      * @param {number} options.amount     positive amount in KES
      * @param {string} [options.description] optional note
@@ -28,10 +28,10 @@ class TransferService {
      */
     static async create({ userId, from, to, amount, description, timestamp, transactionReference, force = false }) {
         if (!isValidProvider(from)) {
-            throw new TransferError(`Invalid source account. Must be one of: MPESA, NCBA, IM, CASH`, 'INVALID_ACCOUNT');
+            throw new TransferError(`Invalid source account. Must be one of: MPESA, EQUITY, CASH`, 'INVALID_ACCOUNT');
         }
         if (!isValidProvider(to)) {
-            throw new TransferError(`Invalid destination account. Must be one of: MPESA, NCBA, IM, CASH`, 'INVALID_ACCOUNT');
+            throw new TransferError(`Invalid destination account. Must be one of: MPESA, EQUITY, CASH`, 'INVALID_ACCOUNT');
         }
         if (from === to) {
             throw new TransferError('Source and destination must be different accounts', 'SAME_ACCOUNT');

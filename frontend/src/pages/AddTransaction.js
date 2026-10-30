@@ -24,8 +24,7 @@ const TYPES = [
 
 const PROVIDERS = [
   { key: 'MPESA', label: 'M-Pesa', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  { key: 'NCBA', label: 'NCBA', color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  { key: 'IM', label: 'I&M', color: 'text-violet-600 bg-violet-50 border-violet-200' },
+  { key: 'EQUITY', label: 'Equity Bank', color: 'text-blue-600 bg-blue-50 border-blue-200' },
   { key: 'CASH', label: 'Cash', color: 'text-gray-600 bg-gray-50 border-gray-200' },
 ];
 
@@ -85,7 +84,7 @@ export default function AddTransaction() {
         </div>
 
         {/* Amount */}
-        <div className="card text-center !py-8">
+        <div className="card-glow text-center !py-8 border-0">
           <p className="text-xs font-bold text-muted uppercase tracking-widest mb-2">Amount</p>
           <div className="flex items-center justify-center gap-1">
             <span className="text-2xl font-bold text-muted">KES</span>
@@ -146,7 +145,7 @@ export default function AddTransaction() {
           </motion.div>
         )}
 
-        <button type="submit" disabled={saving} className="btn-primary w-full">
+        <button type="submit" disabled={saving} className="btn-glow w-full">
           {saving ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
