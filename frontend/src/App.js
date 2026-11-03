@@ -14,6 +14,11 @@ import Chat from './pages/Chat';
 import PendingTransactions from './pages/PendingTransactions';
 import Transfers from './pages/Transfers';
 import AiActivity from './pages/AiActivity';
+import { ToastProvider } from './hooks/useToast';
+import { DarkModeProvider } from './hooks/useDarkMode';
+import { CommandPalette, useCommandPalette } from './hooks/useCommandPalette';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import FloatingActionButton from './components/FloatingActionButton';
 
 const tabs = [
   { to: '/', label: 'Home', icon: (active) => (
@@ -112,15 +117,15 @@ function Sidebar() {
   const location = useLocation();
 
   return (
-    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 flex-col glass-strong border-r border-dark-100/50 z-50">
+    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 flex-col glass-strong border-r border-dark-100/50 z-50 dark:border-dark-700/50">
       <div className="px-6 pt-7 pb-5">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl gradient-hero flex items-center justify-center text-white font-bold text-base shadow-lg">
             U
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-dark-900 tracking-tight">UniFlow</h1>
-            <p className="text-[10px] text-dark-400 font-semibold uppercase tracking-widest">Finance Manager</p>
+            <h1 className="text-xl font-extrabold text-dark-900 dark:text-white tracking-tight">UniFlow</h1>
+            <p className="text-[10px] text-dark-400 dark:text-dark-500 font-semibold uppercase tracking-widest">Finance Manager</p>
           </div>
         </div>
       </div>
@@ -132,8 +137,8 @@ function Sidebar() {
             <NavLink key={tab.to} to={tab.to}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 relative ${
                 isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-dark-500 hover:bg-dark-50 hover:text-dark-700'
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
+                  : 'text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800/50 hover:text-dark-700 dark:hover:text-dark-200'
               }`}>
               {isActive && (
                 <motion.div layoutId="sidebar-indicator"
@@ -147,14 +152,14 @@ function Sidebar() {
       </nav>
 
       <div className="px-4 pb-5">
-        <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-2xl p-4 border border-primary-200/50">
+        <div className="bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-900/10 rounded-2xl p-4 border border-primary-200/50 dark:border-primary-800/30">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-primary-200 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-primary-200 dark:bg-primary-800/30 flex items-center justify-center">
               <span className="text-sm">💡</span>
             </div>
-            <p className="text-[10px] font-bold text-primary-700 uppercase tracking-widest">Pro Tip</p>
+            <p className="text-[10px] font-bold text-primary-700 dark:text-primary-400 uppercase tracking-widest">Pro Tip</p>
           </div>
-          <p className="text-xs text-primary-800/70 leading-relaxed">Track income & save a percentage automatically</p>
+          <p className="text-xs text-primary-800/70 dark:text-primary-300/70 leading-relaxed">Track income & save a percentage automatically</p>
         </div>
       </div>
     </aside>
@@ -166,7 +171,7 @@ function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-dark-100/50"
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-dark-100/50 dark:border-dark-700/50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
       <div className="max-w-lg mx-auto flex items-end justify-around pt-2 pb-2 px-2">
         {tabs.map((tab) => {
@@ -175,7 +180,7 @@ function BottomNav() {
             return (
               <NavLink key={tab.to} to={tab.to} className="flex flex-col items-center -mt-4">
                 {tab.icon(isActive)}
-                <span className={`text-[10px] font-semibold mt-1 ${isActive ? 'text-primary-600' : 'text-dark-400'}`}>
+                <span className={`text-[10px] font-semibold mt-1 ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-dark-400 dark:text-dark-500'}`}>
                   {tab.label}
                 </span>
               </NavLink>
@@ -190,7 +195,7 @@ function BottomNav() {
                 <motion.div layoutId="tab-indicator"
                   className="absolute -top-1 w-6 h-1 rounded-full bg-primary-500" />
               )}
-              <span className={`text-[10px] font-semibold mt-1 ${isActive ? 'text-primary-600' : 'text-dark-400'}`}>
+              <span className={`text-[10px] font-semibold mt-1 ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-dark-400 dark:text-dark-500'}`}>
                 {tab.label}
               </span>
             </NavLink>
@@ -209,6 +214,8 @@ const pageVariants = {
 
 function AppShell() {
   const location = useLocation();
+  const { isOpen, setIsOpen, ...commandPaletteProps } = useCommandPalette();
+  useKeyboardShortcuts([], true); // Global shortcuts handled by command palette
 
   return (
     <div className="min-h-screen relative">
@@ -250,15 +257,27 @@ function AppShell() {
           </div>
         </main>
         <BottomNav />
+        <FloatingActionButton />
       </div>
+      
+      {/* Command Palette */}
+      <CommandPalette 
+        isOpen={isOpen} 
+        onClose={() => setIsOpen(false)}
+        {...commandPaletteProps}
+      />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppShell />
-    </BrowserRouter>
+    <DarkModeProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </ToastProvider>
+    </DarkModeProvider>
   );
 }

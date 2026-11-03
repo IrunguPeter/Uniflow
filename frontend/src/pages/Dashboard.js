@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { getBudgetInsight, getSyncStats, getPendingTransactions } from '../services/financeApi';
+import { AnimatedNumber } from '../components/AnimatedNumber';
+import { useToast } from '../hooks/useToast';
 
 const stagger = { animate: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = { 
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { success, error: toastError } = useToast();
 
   useEffect(() => {
     Promise.all([
@@ -40,6 +43,23 @@ export default function Dashboard() {
       setPendingCount(Array.isArray(pendingData) ? pendingData.length : 0);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
+
+  const handleRefresh = async () => {
+    try {
+      const [budgetData, syncData, pendingData] = await Promise.all([
+        getBudgetInsight(),
+        getSyncStats(),
+        getPendingTransactions()
+      ]);
+      setData(budgetData);
+      setSyncStats(syncData);
+      setPendingCount(Array.isArray(pendingData) ? pendingData.length : 0);
+      success('Dashboard refreshed');
+    } catch (err) {
+      toastError('Failed to refresh dashboard');
+      console.error(err);
+    }
+  };
 
   if (loading) return <SkeletonCard />;
   
@@ -147,9 +167,12 @@ export default function Dashboard() {
             <div className="w-2 h-2 rounded-full bg-white/60 animate-pulse" />
             <p className="text-white/70 text-[11px] font-bold uppercase tracking-[0.2em]">Total Balance</p>
           </div>
-          <p className="text-5xl md:text-6xl font-black tracking-tight mb-6 text-gradient">
-            KES {(data.balance || 0).toLocaleString()}
-          </p>
+          <AnimatedNumber 
+            value={data.balance || 0} 
+            prefix="KES " 
+            className="text-5xl md:text-6xl font-black tracking-tight mb-6 text-gradient"
+            duration={1.5}
+          />
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'M-Pesa', value: data.mpesaBalance, icon: '📱', tint: 'text-emerald-400' },
@@ -161,9 +184,12 @@ export default function Dashboard() {
                   <span className="text-xs">{item.icon}</span>
                   <p className="text-[10px] text-white/60 font-semibold">{item.label}</p>
                 </div>
-                <p className={`text-base md:text-lg font-bold ${item.tint}`}>
-                  KES {(item.value || 0).toLocaleString()}
-                </p>
+                <AnimatedNumber 
+                  value={item.value || 0} 
+                  prefix="KES " 
+                  className={`text-base md:text-lg font-bold ${item.tint}`}
+                  duration={1}
+                />
               </div>
             ))}
           </div>
@@ -171,7 +197,7 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Transfer CTA — move money between M-Pesa, Bank and Cash */}
-      <motion.div variants={fadeUp}>
+      <motion.div variants={fadeUp} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
         <button onClick={() => navigate('/transfer')}
           className="w-full flex items-center gap-4 rounded-3xl border border-primary-200/60 bg-gradient-to-br from-primary-50 via-white to-emerald-50/60 px-5 py-4 text-left transition-all duration-200 hover:shadow-md active:scale-[0.99]">
           <div className="w-11 h-11 rounded-2xl gradient-hero flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -195,7 +221,7 @@ export default function Dashboard() {
       {/* Budget + AI Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Weekly Budget */}
-        <motion.div variants={fadeUp} className="card-glow">
+        <motion.div variants={fadeUp} className="card-glow" whileHover={{ y: -2 }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-primary-50 flex items-center justify-center">
@@ -231,13 +257,21 @@ export default function Dashboard() {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-[10px] text-dark-400 font-semibold uppercase tracking-wider">Spent</p>
-              <p className="text-lg font-extrabold text-dark-800">KES {(data.totalSpent || 0).toLocaleString()}</p>
+              <AnimatedNumber 
+                value={data.totalSpent || 0} 
+                prefix="KES " 
+                className="text-lg font-extrabold text-dark-800"
+                duration={1}
+              />
             </div>
             <div className="text-right">
               <p className="text-[10px] text-dark-400 font-semibold uppercase tracking-wider">Remaining</p>
-              <p className={`text-lg font-extrabold ${pct >= 100 ? 'text-red-500' : 'text-primary'}`}>
-                KES {(data.remaining || 0).toLocaleString()}
-              </p>
+              <AnimatedNumber 
+                value={data.remaining || 0} 
+                prefix="KES " 
+                className={`text-lg font-extrabold ${pct >= 100 ? 'text-red-500' : 'text-primary'}`}
+                duration={1}
+              />
             </div>
           </div>
 
@@ -258,7 +292,8 @@ export default function Dashboard() {
           {data.savingsPercentage > 0 && (
             <motion.div variants={fadeUp}
               className="card-glow relative overflow-hidden p-5 border border-pink-100/50"
-              style={{ background: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%)' }}>
+              style={{ background: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%)' }}
+              whileHover={{ y: -2 }}>
               <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-pink-200/30 -mr-8 -mt-8" />
               <div className="relative z-10 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center flex-shrink-0">
@@ -276,7 +311,8 @@ export default function Dashboard() {
           {data.aiAdvice && (
             <motion.div variants={fadeUp}
               className="card-glow relative overflow-hidden p-5 border border-amber-100/50"
-              style={{ background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' }}>
+              style={{ background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' }}
+              whileHover={{ y: -2 }}>
               <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-amber-200/30 -mr-10 -mt-10" />
               <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-amber-200/20 -ml-6 -mb-6" />
               <div className="relative z-10 flex gap-4">
@@ -295,7 +331,7 @@ export default function Dashboard() {
 
       {/* Where Did My Money Go? - Money Leaks & Daily Burn Rate */}
       {data.spendingLeaks && (
-        <motion.div variants={fadeUp} className="card border-2 border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/30">
+        <motion.div variants={fadeUp} className="card border-2 border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/30" whileHover={{ y: -2 }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg">
@@ -314,65 +350,109 @@ export default function Dashboard() {
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             {/* Daily Burn */}
-            <div className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm">
+            <motion.div 
+              layout
+              className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm"
+              whileHover={{ scale: 1.02 }}
+            >
               <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Daily Burn Rate</p>
-              <p className="text-xl font-black text-dark-800">
-                KES {(data.spendingLeaks.dailyBurnRate || 0).toLocaleString()} <span className="text-xs font-normal text-dark-400">/day</span>
-              </p>
+              <AnimatedNumber 
+                value={data.spendingLeaks.dailyBurnRate || 0} 
+                prefix="KES " 
+                suffix=" <span className='text-xs font-normal text-dark-400'>/day</span>"
+                formatter={(v) => `${v.toLocaleString()} <span className='text-xs font-normal text-dark-400'>/day</span>`}
+                className="text-xl font-black text-dark-800"
+                duration={1}
+              />
               <p className="text-[11px] text-dark-500 mt-1">Average daily spending</p>
-            </div>
+            </motion.div>
 
             {/* Survival Runway */}
-            <div className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm">
+            <motion.div 
+              layout
+              className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm"
+              whileHover={{ scale: 1.02 }}
+            >
               <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Survival Runway</p>
-              <p className={`text-xl font-black ${
-                data.spendingLeaks.runwayDays <= 7 ? 'text-red-500' :
-                data.spendingLeaks.runwayDays <= 14 ? 'text-amber-500' : 'text-primary'
-              }`}>
-                {data.spendingLeaks.runwayDays === 999 ? '∞' : `${data.spendingLeaks.runwayDays} Days`}
-              </p>
+              <div className="flex items-center gap-2">
+                <AnimatedNumber 
+                  value={data.spendingLeaks.runwayDays === 999 ? 999 : data.spendingLeaks.runwayDays || 0} 
+                  className={`text-xl font-black ${
+                    data.spendingLeaks.runwayDays <= 7 ? 'text-red-500' :
+                    data.spendingLeaks.runwayDays <= 14 ? 'text-amber-500' : 'text-primary'
+                  }`}
+                  duration={1}
+                />
+                {data.spendingLeaks.runwayDays === 999 ? (
+                  <span className="text-xl font-black text-primary">∞</span>
+                ) : (
+                  <span className="text-xl font-black text-primary">Days</span>
+                )}
+              </div>
               <p className="text-[11px] text-dark-500 mt-1">
                 {data.spendingLeaks.runwayDays <= 7 ? '⚠️ Funds low! Slow down spending' : 'At current daily burn rate'}
               </p>
-            </div>
+            </motion.div>
 
             {/* Micro-spend Leaks */}
-            <div className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm">
+            <motion.div 
+              layout
+              className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm"
+              whileHover={{ scale: 1.02 }}
+            >
               <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Small Drains (&lt; Ksh 300)</p>
-              <p className="text-xl font-black text-amber-600">
-                KES {(data.spendingLeaks.microSpending?.total || 0).toLocaleString()}
-              </p>
+              <AnimatedNumber 
+                value={data.spendingLeaks.microSpending?.total || 0} 
+                prefix="KES " 
+                className="text-xl font-black text-amber-600"
+                duration={1}
+              />
               <p className="text-[11px] text-dark-500 mt-1">
                 {data.spendingLeaks.microSpending?.count || 0} purchases ({data.spendingLeaks.microSpending?.percentage || 0}% of total)
               </p>
-            </div>
+            </motion.div>
           </div>
 
           {/* Micro-spend Insight Banner */}
           {data.spendingLeaks.microSpending?.insight && (
-            <div className={`rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-center gap-2 mb-4 ${
-              data.spendingLeaks.microSpending?.percentage > 25
-                ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-            }`}>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-center gap-2 mb-4 ${
+                data.spendingLeaks.microSpending?.percentage > 25
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              }`}>
               <span>{data.spendingLeaks.microSpending?.percentage > 25 ? '⚠️' : '💡'}</span>
               <span>{data.spendingLeaks.microSpending?.insight}</span>
-            </div>
+            </motion.div>
           )}
 
           {/* Top Drains List */}
           {data.spendingLeaks.topDrains && data.spendingLeaks.topDrains.length > 0 && (
-            <div>
+            <motion.div layout>
               <p className="text-xs font-bold text-dark-600 uppercase tracking-wider mb-2">Top Money Drains</p>
               <div className="space-y-2">
                 {data.spendingLeaks.topDrains.slice(0, 3).map((drain, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs bg-white rounded-xl px-3 py-2 border border-dark-100">
+                  <motion.div 
+                    key={idx} 
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="flex items-center justify-between text-xs bg-white rounded-xl px-3 py-2 border border-dark-100"
+                    whileHover={{ x: 4 }}
+                  >
                     <span className="font-semibold text-dark-700 truncate max-w-[200px]">{drain.payee}</span>
-                    <span className="font-extrabold text-dark-900">KES {drain.amount.toLocaleString()}</span>
-                  </div>
+                    <AnimatedNumber 
+                      value={drain.amount} 
+                      prefix="KES " 
+                      className="font-extrabold text-dark-900"
+                      duration={0.8}
+                    />
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
         </motion.div>
       )}
@@ -391,7 +471,10 @@ export default function Dashboard() {
             { label: 'Goals', icon: '🎯', to: '/savings-goals', color: 'from-pink-50 to-pink-100', text: 'text-pink-700', tint: 'bg-pink-500' },
           ].map((a) => (
             <button key={a.to} onClick={() => navigate(a.to)}
-              className={`bg-gradient-to-br ${a.color} rounded-2xl p-4 flex flex-col items-center gap-2.5 transition-all duration-300 active:scale-95 hover:shadow-lg hover:-translate-y-1 border border-white/50`}>
+              className={`bg-gradient-to-br ${a.color} rounded-2xl p-4 flex flex-col items-center gap-2.5 transition-all duration-300 active:scale-95 hover:shadow-lg hover:-translate-y-1 border border-white/50`}
+              whileHover={{ y: -2, scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+            >
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${a.tint}`}>
                 <span className="text-lg">{a.icon}</span>
               </div>
@@ -412,7 +495,14 @@ export default function Dashboard() {
           </div>
           <div className="card space-y-3">
             {data.recentTransactions.slice(0, 3).map((tx, i) => (
-              <div key={i} className="flex items-center gap-3">
+              <motion.div 
+                key={i} 
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-3"
+                whileHover={{ x: 4 }}
+              >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                   tx.type === 'transfer' ? 'bg-primary-100' : tx.type === 'income' ? 'bg-primary-100' : 'bg-dark-100'
                 }`}>
@@ -425,13 +515,21 @@ export default function Dashboard() {
                   </p>
                 </div>
                 {tx.type === 'transfer' ? (
-                  <p className="text-sm font-bold text-primary-600">KES {tx.amount.toLocaleString()}</p>
+                  <AnimatedNumber 
+                    value={tx.amount} 
+                    prefix="KES " 
+                    className="text-sm font-bold text-primary-600"
+                    duration={0.8}
+                  />
                 ) : (
-                  <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-primary-600' : 'text-dark-700'}`}>
-                    {tx.type === 'income' ? '+' : '-'} KES {tx.amount.toLocaleString()}
-                  </p>
+                  <AnimatedNumber 
+                    value={tx.amount} 
+                    prefix={tx.type === 'income' ? '+ KES ' : '- KES '} 
+                    className={`text-sm font-bold ${tx.type === 'income' ? 'text-primary-600' : 'text-dark-700'}`}
+                    duration={0.8}
+                  />
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
         </motion.div>
