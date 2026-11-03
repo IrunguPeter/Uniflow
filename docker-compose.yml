@@ -7,9 +7,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      # Reuse cache from previous builds to speed up `docker compose up --build`
-      cache_from:
-        - uniflow-backend:cache
     container_name: uniflow-backend
     init: true                      # Proper signal handling (SIGTERM → shutdown)
     restart: always                 # Auto-restart on crash or host reboot
@@ -53,15 +50,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      cache_from:
-        - uniflow-frontend:cache
     container_name: uniflow-frontend
     init: true
     restart: always
     stop_grace_period: 10s
     user: "101:101"                 # Nginx default non-root user
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-5070}:80"
     env_file:
       - .env
     environment:

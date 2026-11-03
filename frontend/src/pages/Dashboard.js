@@ -88,7 +88,7 @@ export default function Dashboard() {
       {/* Header */}
       <motion.div variants={fadeUp} className="flex items-center justify-between pt-2">
         <div>
-          <p className="text-[11px] text-dark-400 font-semibold uppercase tracking-widest mb-0.5">Welcome back</p>
+          <p className="text-[11px] text-dark-600 font-semibold uppercase tracking-widest mb-0.5">Welcome back</p>
           <h1 className="text-2xl md:text-3xl font-extrabold text-dark-900 tracking-tight">Dashboard</h1>
         </div>
         <div className="relative">
@@ -116,7 +116,7 @@ export default function Dashboard() {
                 <p className="text-xs font-bold text-dark-700">
                   M-Pesa Auto-Sync
                 </p>
-                <p className="text-[10px] text-dark-400">
+                <p className="text-[10px] text-dark-600">
                   {syncStats.isActive 
                     ? `Active • ${syncStats.mpesaTransactions} synced`
                     : syncStats.lastSync 
@@ -142,7 +142,7 @@ export default function Dashboard() {
                 <p className="text-xs font-bold text-dark-700">
                   {pendingCount} Pending Transaction{pendingCount !== 1 ? 's' : ''}
                 </p>
-                <p className="text-[10px] text-dark-400">
+                <p className="text-[10px] text-dark-700">
                   Needs categorization
                 </p>
               </div>
@@ -210,7 +210,7 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-extrabold text-dark-800">Transfer money</p>
-            <p className="text-[11px] text-dark-400 mt-0.5">Move money between M-Pesa, your bank and cash</p>
+            <p className="text-[11px] text-dark-600 mt-0.5">Move money between M-Pesa, your bank and cash</p>
           </div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
             <polyline points="9 18 15 12 9 6" />
@@ -232,7 +232,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-sm font-bold text-dark-800">Weekly Budget</p>
-                <p className="text-[10px] text-dark-400 font-medium">Spending tracker</p>
+                <p className="text-[10px] text-dark-600 font-medium">Spending tracker</p>
               </div>
             </div>
             <span className={`badge ${status.bg} ${status.color}`}>
@@ -256,7 +256,7 @@ export default function Dashboard() {
 
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-[10px] text-dark-400 font-semibold uppercase tracking-wider">Spent</p>
+              <p className="text-[10px] text-dark-600 font-semibold uppercase tracking-wider">Spent</p>
               <AnimatedNumber 
                 value={data.totalSpent || 0} 
                 prefix="KES " 
@@ -265,7 +265,7 @@ export default function Dashboard() {
               />
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-dark-400 font-semibold uppercase tracking-wider">Remaining</p>
+              <p className="text-[10px] text-dark-600 font-semibold uppercase tracking-wider">Remaining</p>
               <AnimatedNumber 
                 value={data.remaining || 0} 
                 prefix="KES " 
@@ -276,7 +276,7 @@ export default function Dashboard() {
           </div>
 
           {data.recurringWeekly > 0 && (
-            <div className="mt-4 flex items-center gap-2 text-[11px] text-dark-500 bg-dark-50 rounded-xl px-3 py-2">
+            <div className="mt-4 flex items-center gap-2 text-[11px] text-dark-700 bg-dark-50 rounded-xl px-3 py-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
                 <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
@@ -339,7 +339,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-dark-900">Where Your Money Goes</h3>
-                <p className="text-xs text-dark-400">Cash leak detection & survival runway</p>
+                <p className="text-xs text-dark-600">Cash leak detection & survival runway</p>
               </div>
             </div>
             <span className="badge bg-indigo-100 text-indigo-700 font-bold text-[11px]">
@@ -355,16 +355,15 @@ export default function Dashboard() {
               className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm"
               whileHover={{ scale: 1.02 }}
             >
-              <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Daily Burn Rate</p>
+              <p className="text-[10px] text-dark-600 uppercase font-bold tracking-wider mb-1">Daily Burn Rate</p>
               <AnimatedNumber 
                 value={data.spendingLeaks.dailyBurnRate || 0} 
                 prefix="KES " 
-                suffix=" <span className='text-xs font-normal text-dark-400'>/day</span>"
-                formatter={(v) => `${v.toLocaleString()} <span className='text-xs font-normal text-dark-400'>/day</span>`}
+                formatter={(v) => `${v.toLocaleString()} <span className='text-xs font-normal text-dark-500'>/day</span>`}
                 className="text-xl font-black text-dark-800"
                 duration={1}
               />
-              <p className="text-[11px] text-dark-500 mt-1">Average daily spending</p>
+              <p className="text-[11px] text-dark-600 mt-1">Average daily spending</p>
             </motion.div>
 
             {/* Survival Runway */}
@@ -373,7 +372,7 @@ export default function Dashboard() {
               className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm"
               whileHover={{ scale: 1.02 }}
             >
-              <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Survival Runway</p>
+              <p className="text-[10px] text-dark-600 uppercase font-bold tracking-wider mb-1">Survival Runway</p>
               <div className="flex items-center gap-2">
                 <AnimatedNumber 
                   value={data.spendingLeaks.runwayDays === 999 ? 999 : data.spendingLeaks.runwayDays || 0} 
@@ -389,7 +388,7 @@ export default function Dashboard() {
                   <span className="text-xl font-black text-primary">Days</span>
                 )}
               </div>
-              <p className="text-[11px] text-dark-500 mt-1">
+              <p className="text-[11px] text-dark-600 mt-1">
                 {data.spendingLeaks.runwayDays <= 7 ? '⚠️ Funds low! Slow down spending' : 'At current daily burn rate'}
               </p>
             </motion.div>
@@ -400,14 +399,14 @@ export default function Dashboard() {
               className="bg-white rounded-2xl p-3 border border-dark-100 shadow-sm"
               whileHover={{ scale: 1.02 }}
             >
-              <p className="text-[10px] text-dark-400 uppercase font-bold tracking-wider mb-1">Small Drains (&lt; Ksh 300)</p>
+              <p className="text-[10px] text-dark-600 uppercase font-bold tracking-wider mb-1">Small Drains (&lt; Ksh 300)</p>
               <AnimatedNumber 
                 value={data.spendingLeaks.microSpending?.total || 0} 
                 prefix="KES " 
                 className="text-xl font-black text-amber-600"
                 duration={1}
               />
-              <p className="text-[11px] text-dark-500 mt-1">
+              <p className="text-[11px] text-dark-600 mt-1">
                 {data.spendingLeaks.microSpending?.count || 0} purchases ({data.spendingLeaks.microSpending?.percentage || 0}% of total)
               </p>
             </motion.div>
@@ -510,7 +509,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-dark-800 truncate">{tx.description}</p>
-                  <p className="text-[10px] text-dark-400">
+                  <p className="text-[10px] text-dark-600">
                     {tx.type === 'transfer' ? `Transfer • ${tx.provider} → ${tx.toProvider}` : tx.category}
                   </p>
                 </div>

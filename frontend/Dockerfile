@@ -20,12 +20,20 @@ RUN npm run build
 # Stage 2: Serve with lightweight Nginx
 FROM nginx:alpine
 
+# Set up nginx to run as non-root user (UID 101)
+# Create necessary directories and set permissions
+RUN mkdir -p /var/cache/nginx /var/run/nginx /var/log/nginx \
+    && chown -R 101:101 /var/cache/nginx /var/run/nginx /var/log/nginx /usr/share/nginx/html \
+    && chmod -R 755 /var/cache/nginx /var/run/nginx /var/log/nginx
+
 # Remove default nginx boilerplate
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY --from=build /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
+
+USER 101
 
 CMD ["nginx", "-g", "daemon off;"]
