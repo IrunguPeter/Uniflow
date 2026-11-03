@@ -14,7 +14,7 @@ require('./models/AiAction');
 require('./models/SavingsGoal');
 
 const app = express();
-const PORT = process.env.PORT || 5070;
+const PORT = process.env.PORT || 5000;
 
 const financeRoutes = require('./routes/financeRoutes');
 
