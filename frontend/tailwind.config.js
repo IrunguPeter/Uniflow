@@ -4,8 +4,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: '#10B981',
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
           50: '#ECFDF5',
           100: '#D1FAE5',
           200: '#A7F3D0',
@@ -16,6 +22,30 @@ module.exports = {
           700: '#047857',
           800: '#065F46',
           900: '#064E3B',
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
         dark: {
           DEFAULT: '#0F172A',
@@ -30,15 +60,17 @@ module.exports = {
           800: '#1E293B',
           900: '#0F172A',
         },
-        accent: {
-          DEFAULT: '#F59E0B',
-          light: '#FCD34D',
-          dark: '#D97706',
-        },
         success: '#10B981',
         warning: '#F59E0B',
         danger: '#EF4444',
         info: '#3B82F6',
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        '4xl': '2rem',
+        '5xl': '2.5rem',
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
@@ -52,10 +84,6 @@ module.exports = {
         'elevated': '0 8px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.04)',
         'bottom-bar': '0 -4px 24px rgba(0, 0, 0, 0.06)',
         'float': '0 20px 60px rgba(0, 0, 0, 0.12)',
-      },
-      borderRadius: {
-        '4xl': '2rem',
-        '5xl': '2.5rem',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',

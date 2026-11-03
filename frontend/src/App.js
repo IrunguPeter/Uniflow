@@ -14,11 +14,11 @@ import Chat from './pages/Chat';
 import PendingTransactions from './pages/PendingTransactions';
 import Transfers from './pages/Transfers';
 import AiActivity from './pages/AiActivity';
-import { ToastProvider } from './hooks/useToast';
 import { DarkModeProvider } from './hooks/useDarkMode';
 import { CommandPalette, useCommandPalette } from './hooks/useCommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import FloatingActionButton from './components/FloatingActionButton';
+import { Toaster } from './components/Toaster';
 
 const tabs = [
   { to: '/', label: 'Home', icon: (active) => (
@@ -273,11 +273,10 @@ function AppShell() {
 export default function App() {
   return (
     <DarkModeProvider>
-      <ToastProvider>
-        <BrowserRouter>
-          <AppShell />
-        </BrowserRouter>
-      </ToastProvider>
+      <BrowserRouter>
+        <AppShell />
+        <Toaster />
+      </BrowserRouter>
     </DarkModeProvider>
   );
 }
